@@ -1,4 +1,4 @@
-// Blockly is loaded via CDN in index.html and is available globally.
+ // Blockly is loaded via CDN in index.html and is available globally.
 
 function initApp() {
     // בדיקה אם הדפדפן תומך ואם אנחנו בסביבה מאובטחת
