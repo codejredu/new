@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>שליטה ב-Micro:bit עם Blockly</title>
+    
+    <!-- טעינת ספריות Blockly מה-CDN -->
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    <script src="https://unpkg.com/blockly/blocks.min.js"></script>
+    <script src="https://unpkg.com/blockly/javascript.min.js"></script>
+    <script src="https://unpkg.com/blockly/msg/he.js"></script> <!-- עברית -->
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        /* סרגל כלים עליון */
+        .toolbar {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 1000px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            font-weight: bold;
+            color: #dc3545; /* אדום כברירת מחדל */
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-indicator.connected {
+            color: #28a745; /* ירוק כשמחובר */
+        }
+
+        /* כפתורים */
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: bold;
+        }
+
+        #connectBtn {
+            background-color: #007bff;
+            color: white;
+        }
+        #connectBtn:hover { background-color: #0056b3; }
+        #connectBtn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        #runBtn {
+            background-color: #28a745;
+            color: white;
+        }
+        #runBtn:hover { background-color: #218838; }
+        #runBtn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* אזור ה-Blockly */
+        #blocklyDiv {
+            height: 600px;
+            width: 90%;
+            max-width: 1000px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: white;
+        }
+
+        /* הודעת אזהרה אם לא רץ בשרת */
+        #https-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+            border: 1px solid #ffeeba;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>בקר Micro:bit ויזואלי</h1>
+
+    <div id="https-warning">
+        ⚠️ שים לב: Web Bluetooth עובד רק ב-HTTPS או ב-Localhost (שרת מקומי). אם פתחת את הקובץ ישירות, זה לא יעבוד.
+    </div>
+
+    <div class="toolbar">
+        <div>
+            <button id="connectBtn">🔌 התחבר ל-Micro:bit</button>
+            <span id="status" class="status-indicator">🔴 מנותק</span>
+        </div>
+        <div>
+            <button id="runBtn" disabled>▶️ הרץ תוכנית</button>
+        </div>
+    </div>
+
+    <div id="blocklyDiv"></div>
+
+    <!-- הגדרת ה-Toolbox (רשימת הבלוקים בצד) -->
+    <xml id="toolbox" style="display: none">
+        <category name="Micro:bit" colour="230">
+            <block type="microbit_led"></block>
+            <block type="microbit_wait"></block>
+        </category>
+        <category name="לוגיקה" colour="210">
+            <block type="controls_repeat_ext">
+                <value name="TIMES">
+                    <block type="math_number">
+                        <field name="NUM">5</field>
+                    </block>
+                </value>
+            </block>
+            <block type="controls_if"></block>
+        </category>
+    </xml>
+
+    <script>
+        // בדיקה אם הדפדפן תומך ואם אנחנו בסביבה מאובטחת
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            document.getElementById('https-warning').style.display = 'block';
+        }
+
+        // ==========================================
+        // 1. הגדרת בלוקים מותאמים אישית (Custom Blocks)
+        // ==========================================
+
+        // בלוק: הדלקת/כיבוי לד
+        Blockly.Blocks['microbit_led'] = {
+            init: function() {
+                this.appendDummyInput()
+                    .appendField("💡 נורות LED")
+                    .appendField(new Blockly.FieldDropdown([["הדלק (לב)","ON"], ["כבה","OFF"]]), "STATE");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(230);
+                this.setTooltip("שולח פקודה למיקרוביט להציג צורה או לכבות מסך");
+            }
+        };
+
+        Blockly.JavaScript['microbit_led'] = function(block) {
+            var state = block.getFieldValue('STATE');
+            var command = state === 'ON' ? 'LED_ON' : 'LED_OFF';
+            // שימוש ב-await כדי שהפקודות יישלחו אחת אחרי השנייה ולא במכה אחת
+            return 'await sendCommand("' + command + '");\n';
+        };
+
+        // בלוק: המתנה
+        Blockly.Blocks['microbit_wait'] = {
+            init: function() {
+                this.appendDummyInput()
+                    .appendField("⏳ חכה")
+                    .appendField(new Blockly.FieldTextInput("1"), "SECONDS")
+                    .appendField("שניות");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(230);
+                this.setTooltip("ממתין לפני הפקודה הבאה");
+            }
+        };
+
+        Blockly.JavaScript['microbit_wait'] = function(block) {
+            var seconds = block.getFieldValue('SECONDS');
+            return 'await wait(' + seconds + ');\n';
+        };
+
+        // ==========================================
+        // 2. אתחול סביבת העבודה (Workspace)
+        // ==========================================
+        
+        var workspace = Blockly.inject('blocklyDiv', {
+            toolbox: document.getElementById('toolbox'),
+            scrollbars: true,
+            rtl: true // כיוון מימין לשמאל
+        });
+
+        // ==========================================
+        // 3. לוגיקת Web Bluetooth
+        // ==========================================
+
+        // קבועים של שירות ה-UART של Nordic
+        const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const UART_TX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // לכתיבה
+
+        let bluetoothDevice;
+        let uartCharacteristic;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const runBtn = document.getElementById('runBtn');
+        const statusSpan = document.getElementById('status');
+
+        connectBtn.addEventListener('click', async () => {
+            try {
+                if (!navigator.bluetooth) {
+                    alert('הדפדפן שלך לא תומך ב-Web Bluetooth. נא להשתמש ב-Chrome או Edge.');
+                    return;
+                }
+
+                console.log('מחפש התקן Micro:bit...');
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'BBC micro:bit' }],
+                    optionalServices: [UART_SERVICE_UUID]
+                });
+
+                // מאזינים לניתוק
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                statusSpan.innerText = '🟡 מתחבר...';
+                
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService(UART_SERVICE_UUID);
+                uartCharacteristic = await service.getCharacteristic(UART_TX_UUID);
+
+                onConnected();
+
+            } catch (error) {
+                console.error('שגיאה בהתחברות:', error);
+                // שיניתי את ה-alert להודעה ידידותית יותר, שנותנת קונטקסט לאבטחה
+                const errorMessage = error.name === 'SecurityError' && error.message.includes('permissions policy') 
+                    ? 'שגיאת אבטחה (SecurityError): הגישה לבלוטות\' נחסמה על ידי מדיניות ההרשאות. אנא הרץ את היישום מחוץ לסביבת ה-Sandbox הנוכחית (כלומר, הפעל שרת מקומי ופתח בדפדפן הראשי).'
+                    : 'ההתחברות נכשלה: ' + error.message;
+
+                alert(errorMessage);
+                onDisconnected();
+            }
+        });
+
+        function onConnected() {
+            statusSpan.innerText = '🟢 מחובר!';
+            statusSpan.classList.add('connected');
+            connectBtn.disabled = true;
+            connectBtn.innerText = 'מחובר';
+            runBtn.disabled = false;
+        }
+
+        function onDisconnected() {
+            statusSpan.innerText = '🔴 מנותק';
+            statusSpan.classList.remove('connected');
+            connectBtn.disabled = false;
+            connectBtn.innerText = '🔌 התחבר ל-Micro:bit';
+            runBtn.disabled = true;
+            uartCharacteristic = null;
+            bluetoothDevice = null;
+        }
+
+        // ==========================================
+        // 4. פונקציות עזר להרצה (Runtime)
+        // ==========================================
+
+        // פונקציה ששולחת טקסט למיקרוביט
+        async function sendCommand(cmd) {
+            if (!uartCharacteristic) {
+                console.warn("לא מחובר, הפקודה לא נשלחה:", cmd);
+                return;
+            }
+            try {
+                // הוספת תו ירידת שורה (\n) בסוף הפקודה היא קריטית לפרוטוקול UART
+                let encoder = new TextEncoder();
+                await uartCharacteristic.writeValue(encoder.encode(cmd + "\n"));
+                console.log("נשלח למיקרוביט:", cmd);
+            } catch (err) {
+                console.error("שגיאה בשליחה:", err);
+            }
+        }
+
+        // פונקציית המתנה (Promise based)
+        function wait(seconds) {
+            return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+        }
+
+        // ==========================================
+        // 5. הרצת הקוד
+        // ==========================================
+
+        runBtn.addEventListener('click', () => {
+            // יצירת קוד JS מהבלוקים
+            const code = Blockly.JavaScript.workspaceToCode(workspace);
+            
+            // עוטפים בפונקציה אסינכרונית כדי לאפשר שימוש ב-await (להמתנות)
+            const asyncWrapper = `
+            (async function() {
+                try {
+                    console.log("מתחיל ריצה...");
+                    ${code}
+                    console.log("הריצה הסתיימה.");
+                } catch (e) {
+                    console.error("שגיאה בזמן ריצה:", e);
+                    alert("שגיאה בקוד: " + e.message);
+                }
+            })();
+            `;
+
+            console.log("הקוד שנוצר:\n", asyncWrapper);
+            
+            // הרצת הקוד בפועל
+            try {
+                eval(asyncWrapper); 
+            } catch (e) {
+                alert(e);
+            }
+        });
+
+    </script>
+</body>
+</html>
