@@ -87,30 +87,15 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             background: white;
         }
-
-        /* הודעת אזהרה אם לא רץ בשרת */
-        #https-warning {
-            background: #fff3cd;
-            color: #856404;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            display: none;
-            border: 1px solid #ffeeba;
-        }
     </style>
 </head>
 <body>
 
     <h1>בקר Micro:bit ויזואלי</h1>
 
-    <div id="https-warning">
-        ⚠️ שים לב: Web Bluetooth עובד רק ב-HTTPS או ב-Localhost (שרת מקומי). אם פתחת את הקובץ ישירות, זה לא יעבוד.
-    </div>
-
     <div class="toolbar">
         <div>
-            <button id="connectBtn">🔌 התחבר ל-Micro:bit</button>
+            <button id="connectBtn">🔌 התחבר עם כבל USB</button>
             <span id="status" class="status-indicator">🔴 מנותק</span>
         </div>
         <div>
