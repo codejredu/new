@@ -1,5 +1,5 @@
 {
   "requestFramePermissions": [
-    "bluetooth"
+    "serial"
   ]
 }
