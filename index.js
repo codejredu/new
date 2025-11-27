@@ -1,12 +1,6 @@
 // Blockly is loaded via CDN in index.html and is available globally.
 
 function initApp() {
-    // בדיקה אם הדפדפן תומך ואם אנחנו בסביבה מאובטחת
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        const warning = document.getElementById('https-warning');
-        if (warning) warning.style.display = 'block';
-    }
-
     // ==========================================
     // 1. הגדרת בלוקים מותאמים אישית (Custom Blocks)
     // ==========================================
@@ -65,62 +59,74 @@ function initApp() {
     });
 
     // ==========================================
-    // 3. לוגיקת Web Bluetooth
+    // 3. לוגיקת Web Serial (חיבור USB)
     // ==========================================
 
-    // קבועים של שירות ה-UART של Nordic
-    const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-    const UART_TX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // לכתיבה
-
-    let bluetoothDevice = null;
-    let uartCharacteristic = null;
+    let port = null;
+    let writer = null;
+    const encoder = new TextEncoder();
 
     const connectBtn = document.getElementById('connectBtn');
     const runBtn = document.getElementById('runBtn');
     const statusSpan = document.getElementById('status');
 
+    async function connect() {
+        try {
+            if (!("serial" in navigator)) {
+                alert("הדפדפן שלך לא תומך ב-Web Serial API. נא להשתמש ב-Chrome או Edge עדכניים.");
+                return;
+            }
+
+            console.log("מבקש מהמשתמש לבחור יציאה טורית...");
+            port = await navigator.serial.requestPort({
+                // פילטר עבור Micro:bit (יצרן ARM)
+                filters: [{ usbVendorId: 0x0d28 }]
+            });
+            
+            // פותחים את החיבור
+            await port.open({ baudRate: 115200 });
+            
+            writer = port.writable.getWriter();
+            
+            onConnected();
+
+        } catch (error) {
+            if (error.name === 'NotFoundError') {
+                console.log('המשתמש ביטל את בחירת היציאה.');
+                return;
+            }
+            console.error('שגיאה בהתחברות:', error);
+            alert('ההתחברות נכשלה: ' + error.message);
+            onDisconnected();
+        }
+    }
+
+    async function disconnect() {
+        if (writer) {
+            try {
+                await writer.releaseLock();
+            } catch (e) {
+                console.error("שגיאה בשחרור נעילה:", e);
+            }
+        }
+        if (port) {
+            try {
+                await port.close();
+            } catch (e) {
+                console.error("שגיאה בסגירת פורט:", e);
+            }
+        }
+        
+        onDisconnected();
+        console.log("החיבור נותק.");
+    }
+
     if (connectBtn) {
         connectBtn.addEventListener('click', async () => {
-            try {
-                if (!navigator.bluetooth) {
-                    alert('הדפדפן שלך לא תומך ב-Web Bluetooth. נא להשתמש ב-Chrome או Edge.');
-                    return;
-                }
-
-                console.log('מחפש התקן Micro:bit...');
-                // שינוי: חיפוש לפי שירות ה-UART במקום לפי שם. זו שיטה אמינה יותר.
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{
-                        services: [UART_SERVICE_UUID]
-                    }]
-                });
-
-                // מאזינים לניתוק
-                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
-
-                if (statusSpan) statusSpan.innerText = '🟡 מתחבר...';
-                
-                const server = await bluetoothDevice.gatt.connect();
-                const service = await server.getPrimaryService(UART_SERVICE_UUID);
-                uartCharacteristic = await service.getCharacteristic(UART_TX_UUID);
-
-                onConnected();
-
-            } catch (error) {
-                // אם המשתמש סוגר את חלון בחירת ההתקן, אל תציג שגיאה
-                if (error.name === 'NotFoundError') {
-                    console.log('User cancelled the device selection dialog.');
-                    return; // יוצאים מהפונקציה בשקט
-                }
-
-                console.error('שגיאה בהתחברות:', error);
-                
-                const errorMessage = error.name === 'SecurityError' && error.message.includes('permissions policy') 
-                    ? 'שגיאת אבטחה (SecurityError): הגישה לבלוטות\' נחסמה על ידי מדיניות ההרשאות. אנא הרץ את היישום מחוץ לסביבת ה-Sandbox הנוכחית (כלומר, הפעל שרת מקומי ופתח בדפדפן הראשי).'
-                    : 'ההתחברות נכשלה: ' + error.message;
-
-                alert(errorMessage);
-                onDisconnected();
+            if (port) { // אם כבר מחובר, נתק
+                await disconnect();
+            } else { // אם מנותק, חבר
+                await connect();
             }
         });
     }
@@ -131,8 +137,7 @@ function initApp() {
             statusSpan.classList.add('connected');
         }
         if (connectBtn) {
-            connectBtn.disabled = true;
-            connectBtn.innerText = 'מחובר';
+            connectBtn.innerText = '🔌 נתק חיבור';
         }
         if (runBtn) {
             runBtn.disabled = false;
@@ -145,14 +150,13 @@ function initApp() {
             statusSpan.classList.remove('connected');
         }
         if (connectBtn) {
-            connectBtn.disabled = false;
-            connectBtn.innerText = '🔌 התחבר ל-Micro:bit';
+            connectBtn.innerText = '🔌 התחבר עם כבל USB';
         }
         if (runBtn) {
             runBtn.disabled = true;
         }
-        uartCharacteristic = null;
-        bluetoothDevice = null;
+        writer = null;
+        port = null;
     }
 
     // ==========================================
@@ -161,17 +165,18 @@ function initApp() {
 
     // פונקציה ששולחת טקסט למיקרוביט
     async function sendCommand(cmd) {
-        if (!uartCharacteristic) {
+        if (!writer) {
             console.warn("לא מחובר, הפקודה לא נשלחה:", cmd);
             return;
         }
         try {
             // הוספת תו ירידת שורה (\n) בסוף הפקודה היא קריטית לפרוטוקול UART
-            let encoder = new TextEncoder();
-            await uartCharacteristic.writeValue(encoder.encode(cmd + "\n"));
+            await writer.write(encoder.encode(cmd + "\n"));
             console.log("נשלח למיקרוביט:", cmd);
         } catch (err) {
             console.error("שגיאה בשליחה:", err);
+            alert("שגיאה בשליחת נתונים. ייתכן שההתקן נותק.");
+            disconnect(); // נתק באופן יזום אם יש שגיאת כתיבה
         }
     }
 
