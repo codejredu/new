@@ -42,7 +42,7 @@
             </h2>
 
             <button id="btConnectBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 disabled:bg-gray-400">
-                <svg class="w-5 h-5 inline-block ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <svg class="w-5 h-5 inline-block ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2003/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 חבר Micro:bit (בלוטוס)
             </button>
             
@@ -356,11 +356,9 @@
             serialStatus.classList.replace('text-red-500', 'text-yellow-500');
             keepReading = true;
 
-            // 1. בקשת פורט טורי מהמשתמש (VID/PID של מיקרוביט)
-            serialPort = await navigator.serial.requestPort({ filters: [
-                { usbVendorId: 0x0D28, usbProductId: 0x0204 }, // Micro:bit V2
-                { usbVendorId: 0x0D28, usbProductId: 0x0206 }  // Micro:bit V1
-            ]});
+            // שינוי קריטי: הסרת המסננים המגבילים כדי לאפשר זיהוי רחב יותר של Micro:bit
+            // כעת יוצגו כל ההתקנים הטוריים, ויש לבחור את ה-Micro:bit ידנית.
+            serialPort = await navigator.serial.requestPort({}); 
             
             // 2. פתיחת הפורט (Baud rate סטנדרטי)
             await serialPort.open({ baudRate: 115200 }); 
@@ -388,7 +386,7 @@
                 addToSerialLog("החיבור הטורי נותק.", true);
             });
             
-            addToSerialLog("החיבור הטורי נוצר בהצלחה.", true);
+            addToSerialLog("החיבור הטורי נוצר בהצלחה. אנא ודא שהמיקרוביט שולח נתונים סדרתיים (כמו print() ב-MicroPython).", true);
 
 
         } catch (error) {
@@ -401,6 +399,9 @@
                 let errorMessage = "שגיאת הרשאה! הדפדפן חוסם גישה ל-USB טורי בסביבה מבודדת זו. אנא: שמור את הקובץ כ-HTML והפעל אותו ישירות בדפדפן (Chrome/Edge).";
                 showMessage('שגיאת הרשאת Web Serial', errorMessage, true);
                 return; 
+            } else if (error.name === 'NotFoundError') {
+                 // זה יקרה אם המשתמש פותח את החלון אבל לא בוחר מכשיר
+                showMessage('לא נבחר מכשיר', 'לא נבחר מכשיר, או שהמיקרוביט עדיין לא מופיע. ודא שהכרטיס מחובר ומופיע ברשימה שנפתחה.', true);
             }
         }
     });
