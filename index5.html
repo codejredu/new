@@ -1,0 +1,417 @@
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סימולטור Bee-Bot Web</title>
+    <!-- טעינת Tailwind CSS ופונט Inter -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #e2f3e4; /* Light green-ish background */
+            background-image: url('https://www.transparenttextures.com/patterns/light-paper-fibers.png');
+        }
+        .bee-bot { transition: transform 0.3s ease-in-out; }
+
+        /* Main Workbench Container */
+        .workbench-container {
+            background-color: #8B5A2B; /* Wood color */
+            background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png');
+            border-radius: 2rem;
+            padding: 2rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3), inset 0 0 15px rgba(0,0,0,0.5);
+            border: 4px solid #5a3d1d;
+        }
+
+        /* Game Grid - Planter Box Style */
+        .planter-box-grid {
+            background-image: url('https://codejredu.github.io/claudejr/grassfield.svg');
+            background-size: cover;
+            background-position: center;
+            border: 12px solid #5a3d1d;
+            border-radius: 1rem;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.6);
+        }
+
+        /* Control Panels - Parchment Style */
+        .parchment-panel {
+            background-color: #fdf5e6; /* Parchment color */
+            border-radius: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            border: 1px solid #d2b48c;
+        }
+        
+        /* Wooden Buttons */
+        .wooden-button {
+            transition: all 0.1s ease;
+            box-shadow: 0 4px #5a3d1d;
+            border: 2px solid #5a3d1d;
+        }
+        .wooden-button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px #5a3d1d;
+        }
+        .wooden-button.round { border-radius: 9999px; }
+        .wooden-button.rect { border-radius: 0.75rem; }
+
+        .sequence-item-selected {
+            box-shadow: 0 0 0 4px #fbbf24; /* Yellow ring */
+            transform: scale(1.1);
+        }
+
+        .turn-button-wrapper {
+            display: flex;
+            justify-content: center;
+        }
+
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fade-in-up 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-6xl mx-auto font-sans">
+        
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-[#4a2d19]">סדנת הגינה של הדבורה</h1>
+            <p class="text-lg text-[#6b4226] mt-2">בנה אלגוריתם והוביל את הדבורה ליעד!</p>
+        </header>
+        
+        <main class="workbench-container">
+            <!-- Level Selector remains outside the main grid/controls split for better layout -->
+            <div class="parchment-panel mb-6 p-4">
+                <label class="block text-xl font-bold mb-3 text-[#5a3d1d] text-center">בחר אתגר:</label>
+                <div id="levelSelectorGrid" class="flex flex-wrap gap-3 justify-center">
+                    <!-- Level squares will be rendered here -->
+                </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-8">
+                
+                <!-- Game Grid -->
+                <div id="gridContainer" class="flex-grow">
+                    <!-- The grid will be rendered here -->
+                </div>
+
+                <!-- Controls and Sequence Panel -->
+                <div class="lg:w-1/3 space-y-6 flex flex-col">
+                    
+                    <div class="parchment-panel p-4 flex-grow flex flex-col">
+                        <!-- Command Pad -->
+                        <div>
+                            <h2 class="text-2xl font-bold mb-4 text-center text-[#5a3d1d]">פקודות</h2>
+                            <div id="commandPad" dir="ltr" class="grid grid-cols-2 gap-4 items-start">
+                                <!-- Command buttons will be rendered here -->
+                            </div>
+                        </div>
+
+                        <!-- Sequence Area -->
+                        <div class="mt-6 flex-grow flex flex-col">
+                            <h2 class="text-2xl font-bold mb-2 text-center text-[#5a3d1d]">רצף (אלגוריתם)</h2>
+                            <div id="sequenceAreaWrapper" class="flex-grow flex flex-col">
+                                 <!-- Sequence content and action buttons will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Feedback Panel -->
+                    <div id="feedback" class="parchment-panel p-4 text-center font-semibold text-lg text-[#5a3d1d] transition-all duration-300" aria-live="polite">
+                        טוען...
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Number Pad -->
+    <div id="numberPadModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden">
+        <!-- Content is rendered dynamically by JS -->
+    </div>
+
+    <script type="module">
+        // =================================================
+        // 1. הגדרות וקבועים
+        // =================================================
+        const CommandType = { Forward: 'Forward', Backward: 'Backward', TurnRight: 'TurnRight', TurnLeft: 'TurnLeft' };
+        const COMMANDS_CONFIG = [
+            { type: CommandType.Forward, hasSteps: true },
+            { type: CommandType.Backward, hasSteps: true },
+            { type: CommandType.TurnRight, hasSteps: false },
+            { type: CommandType.TurnLeft, hasSteps: false },
+        ];
+        const LEVELS = [
+            { id: 0, name: 'תרגול מיידי', isPractice: true, size: { rows: 5, cols: 5 }, startPosition: { x: 2, y: 3 }, startDirection: 'North', targetPosition: { x: 4, y: 4 }, obstacles: [], },
+            { id: 1, name: 'אתגר 1', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPosition: { x: 4, y: 0 }, obstacles: [], },
+            { id: 2, name: 'אתגר 2', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPosition: { x: 1, y: 1 }, obstacles: [{x: 2, y: 1}], },
+            { id: 3, name: 'אתגר 3', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 2, y: 4 }, startDirection: 'North', targetPosition: { x: 4, y: 0 }, obstacles: [ {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 4, y: 1} ], },
+            { id: 4, name: 'אתגר 4', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 4 }, startDirection: 'North', targetPosition: { x: 4, y: 4 }, obstacles: [ {x:1, y:1}, {x:1, y:2}, {x:1, y:3}, {x:1, y:4}, {x:3, y:0}, {x:3, y:1}, {x:3, y:2}, {x:3, y:3} ], },
+            {
+                id: 5, name: 'אתגר 5', isPractice: false, size: { rows: 6, cols: 6 }, startPosition: { x: 0, y: 5 }, startDirection: 'North', targetPosition: { x: 5, y: 0 }, obstacles: [
+                    {x:1, y:1}, {x:1, y:2}, {x:1, y:3}, {x:1, y:4}, {x:2, y:1}, {x:3, y:1}, {x:4, y:1},
+                    {x:3, y:3}, {x:4, y:3}, {x:5, y:3}, {x:3, y:4}, {x:3, y:5},
+                ]
+            },
+            {
+                id: 6, name: 'אתגר 6', isPractice: false, size: { rows: 7, cols: 7 }, startPosition: { x: 6, y: 6 }, startDirection: 'West', targetPosition: { x: 0, y: 0 }, obstacles: [
+                    {x:0, y:1}, {x:1, y:1}, {x:2, y:1}, {x:3, y:1}, {x:4, y:1}, {x:1, y:3}, {x:2, y:3}, 
+                    {x:3, y:3}, {x:4, y:3}, {x:5, y:3}, {x:1, y:5}, {x:2, y:5}, {x:3, y:5}, {x:4, y:5}, {x:5, y:5},
+                ]
+            },
+            { id: 7, name: 'אתגר 7', isPractice: false, size: { rows: 10, cols: 10 }, startPosition: { x: 0, y: 9 }, startDirection: 'North', targetPosition: { x: 9, y: 0 }, obstacles: [
+                ...Array.from({length:9}, (v,i)=>({x:1, y:i+1})), ...Array.from({length:9}, (v,i)=>({x:3, y:i})),
+                ...Array.from({length:9}, (v,i)=>({x:5, y:i+1})), ...Array.from({length:9}, (v,i)=>({x:7, y:i})),
+                ...Array.from({length:9}, (v,i)=>({x:9, y:i+1}))
+            ] }
+        ];
+        const ROTATION_MAP = { 'North': 90, 'East': 180, 'South': 270, 'West': 0 };
+        const REVERSE_ROTATION_MAP = { 90: 'North', 180: 'East', 270: 'South', 0: 'West' };
+
+        // =================================================
+        // 2. מצב המשחק (State)
+        // =================================================
+        let state = {
+            currentLevelId: 0,
+            gridState: { size: { rows: 0, cols: 0 }, targetPosition: { x: 0, y: 0 }, obstacles: new Set() },
+            beeBotState: { position: { x: 0, y: 0 }, direction: 'East', rotation: 180 },
+            sequence: [],
+            selectedSequenceIndex: -1,
+            executingIndex: -1,
+            isExecuting: false,
+            forwardSteps: 1, backwardSteps: 1, isNumberPadOpen: false, numberPadTarget: null,
+        };
+
+        // =================================================
+        // 3. לוגיקת המשחק
+        // =================================================
+        function applySingleStep(commandType, currentBeeState, currentGrid) {
+            let { x, y } = { ...currentBeeState.position };
+            let newRotation = currentBeeState.rotation;
+            if (commandType === CommandType.TurnRight) newRotation = (newRotation + 90) % 360;
+            else if (commandType === CommandType.TurnLeft) newRotation = (newRotation - 90 + 360) % 360;
+            else {
+                const baseStep = commandType === CommandType.Forward ? 1 : -1;
+                switch (newRotation) {
+                    case 180: x += baseStep; break; case 0: x -= baseStep; break;
+                    case 90:  y -= baseStep; break; case 270: y += baseStep; break;
+                }
+            }
+            const newState = { position: { x, y }, rotation: newRotation, direction: REVERSE_ROTATION_MAP[newRotation] };
+            if (commandType.includes('Turn')) return { success: true, newState };
+            if (x < 0 || x >= currentGrid.size.cols || y < 0 || y >= currentGrid.size.rows || currentGrid.obstacles.has(`${x},${y}`)) {
+                return { success: false, newState: { ...currentBeeState } };
+            }
+            return { success: true, newState };
+        }
+        function loadLevel(levelId) {
+            const level = LEVELS.find(l => l.id === levelId) || LEVELS[0];
+            const obsSet = new Set(level.obstacles.map(o => `${o.x},${o.y}`));
+            state = { ...state, currentLevelId: levelId, gridState: { size: level.size, targetPosition: level.targetPosition, obstacles: obsSet }, beeBotState: { position: { ...level.startPosition }, direction: level.startDirection, rotation: ROTATION_MAP[level.startDirection] }, sequence: [], selectedSequenceIndex: -1, executingIndex: -1, isExecuting: false, forwardSteps: 1, backwardSteps: 1 };
+            setFeedback(`שלב '${level.name}' נטען.`, 'info');
+            renderAll();
+        }
+        function goToNextLevel() {
+            const currentLevelIndex = LEVELS.findIndex(l => l.id === state.currentLevelId);
+            const nextLevel = LEVELS[currentLevelIndex + 1];
+            if (nextLevel) loadLevel(nextLevel.id);
+            else {
+                setFeedback("כל הכבוד! סיימת את כל האתגרים! 🎉", 'success');
+                setTimeout(() => loadLevel(LEVELS[0].id), 3000);
+            }
+        }
+        async function executeCommandList(commands, initialBeeState) {
+            let currentState = { ...initialBeeState };
+            let wasSuccessful = true;
+            for (let i = 0; i < commands.length; i++) {
+                if (state.executingIndex !== -1) { state.executingIndex = i; renderControls(); }
+                const { type, steps = 1 } = commands[i];
+                for (let j = 0; j < steps; j++) {
+                    await new Promise(r => setTimeout(r, 400));
+                    const result = applySingleStep(type, currentState, state.gridState);
+                    if (!result.success) {
+                        wasSuccessful = false;
+                        setFeedback("אופס! נתקלת בקיר או מכשול 🚧", 'error');
+                        await new Promise(r => setTimeout(r, 1000)); break;
+                    }
+                    currentState = result.newState;
+                    state.beeBotState = currentState;
+                    renderGrid();
+                }
+                if (!wasSuccessful) break;
+            }
+            return { success: wasSuccessful, finalState: currentState };
+        }
+
+        // =================================================
+        // 4. רינדור (UI)
+        // =================================================
+        function setFeedback(msg, type) {
+            const el = document.getElementById('feedback');
+            const styles = { info: "text-[#5a3d1d]", success: "text-green-700 font-bold", error: "text-red-700 font-bold", warning: "text-orange-600 font-bold" };
+            el.innerHTML = msg; // Use innerHTML to allow for simple formatting if needed
+            el.className = `parchment-panel p-4 text-center font-semibold text-lg transition-all duration-300 ${styles[type]}`;
+        }
+        const getBeeBotSVG = (rotation) => `<img src="https://codejredu.github.io/claudejr/bee-icon1.svg" alt="Bee-Bot" class="bee-bot absolute w-[90%] h-[90%] top-[5%] left-[5%] z-20" style="transform: rotate(${rotation - 90}deg);" />`;
+        const getBushSVG = (x, y) => {
+            const bushIndex = (x * 3 + y * 5) % 3; // consistent but varied bush
+            const bushes = [
+                `<svg viewBox="0 0 100 100"><path d="M 20 80 C 10 80, 10 60, 25 60 S 40 40, 50 50 S 60 40, 75 60 S 90 80, 80 80 Z" fill="#65a30d"/><circle cx="30" cy="55" r="8" fill="#fb7185"/><circle cx="50" cy="45" r="10" fill="#f472b6"/><circle cx="70" cy="55" r="8" fill="#e879f9"/></svg>`,
+                `<svg viewBox="0 0 100 100"><path d="M 20 80 Q 50 40, 80 80 Z" fill="#4d7c0f"/><path d="M 30 80 Q 50 60, 70 80 Z" fill="#65a30d"/><circle cx="35" cy="68" r="7" fill="#facc15"/><circle cx="50" cy="58" r="9" fill="#fbbf24"/><circle cx="65" cy="68" r="7" fill="#f59e0b"/></svg>`,
+                `<svg viewBox="0 0 100 100"><path d="M 20 80 C 20 50, 80 50, 80 80 Z" fill="#166534"/><circle cx="30" cy="60" r="8" fill="#a78bfa"/><circle cx="50" cy="50" r="10" fill="#c084fc"/><circle cx="70" cy="60" r="8" fill="#d8b4fe"/></svg>`
+            ];
+            return `<div class="w-full h-full p-1 opacity-90">${bushes[bushIndex]}</div>`;
+        };
+        function renderLevelSelector() {
+            const container = document.getElementById('levelSelectorGrid');
+            container.innerHTML = LEVELS.map(level => {
+                const isCurrent = level.id === state.currentLevelId;
+                const buttonText = level.isPractice ? 'תרגול' : level.id;
+                const baseClasses = "w-14 h-14 flex items-center justify-center font-bold text-lg transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed wooden-button rect";
+                const activeClasses = "bg-green-600 text-white";
+                const inactiveClasses = "bg-[#d2b48c] text-[#5a3d1d] hover:bg-[#c1a37c]";
+                return `<button onclick="handleLevelChange(${level.id})" class="${baseClasses} ${isCurrent ? activeClasses : inactiveClasses}" ${state.isExecuting ? 'disabled' : ''}>${buttonText}</button>`;
+            }).join('');
+        }
+        function renderGrid() {
+            const container = document.getElementById('gridContainer');
+            const { size, targetPosition, obstacles } = state.gridState;
+            const cellsHTML = Array.from({ length: size.rows * size.cols }, (_, i) => {
+                const y = Math.floor(i / size.cols), x = i % size.cols;
+                const isTarget = x === targetPosition.x && y === targetPosition.y;
+                const isObstacle = obstacles.has(`${x},${y}`);
+                const isBeeHere = x === state.beeBotState.position.x && y === state.beeBotState.position.y;
+                let content = isObstacle ? getBushSVG(x, y) : isTarget ? '<span class="text-4xl">🎯</span>' : '';
+                if (isBeeHere) content += getBeeBotSVG(state.beeBotState.rotation);
+                const borderClass = 'border border-white/50';
+                const bgClass = isObstacle ? 'bg-green-900/30' : '';
+                return `<div class="relative ${borderClass} ${bgClass} flex items-center justify-center">${content}</div>`;
+            }).join('');
+            container.innerHTML = `<div dir="ltr" class="planter-box-grid grid w-full max-w-[600px] aspect-square mx-auto p-2" style="grid-template-columns: repeat(${size.cols}, 1fr); grid-template-rows: repeat(${size.rows}, 1fr);">${cellsHTML}</div>`;
+        }
+        const getCommandIcon = (cmdType) => ({ [CommandType.Forward]: `<img src="https://codejredu.github.io/test/assets/blocklyicon/fd.svg" alt="Forward" class="w-10 h-10">`, [CommandType.Backward]: `<img src="https://codejredu.github.io/test/assets/blocklyicon/bk.svg" alt="Backward" class="w-10 h-10">`, [CommandType.TurnRight]: `<img src="https://codejredu.github.io/test/assets/blocklyicon/rtbee.svg" alt="Turn Right" class="w-10 h-10">`, [CommandType.TurnLeft]: `<img src="https://codejredu.github.io/test/assets/blocklyicon/ltbee.svg" alt="Turn Left" class="w-10 h-10">` }[cmdType] || '?');
+        function renderNumberPad() {
+            const modal = document.getElementById('numberPadModal');
+            if (!state.isNumberPadOpen) { modal.classList.add('hidden'); return; }
+            modal.classList.remove('hidden');
+            const numbersHTML = [1, 2, 3, 4, 5].map(n => `<button onclick="selectNumber(${n})" class="w-16 h-16 text-2xl font-bold bg-[#8B5A2B] text-white rounded-full wooden-button round">${n}</button>`).join('');
+            modal.innerHTML = `<div class="bg-[#fdf5e6] p-6 rounded-2xl shadow-xl w-full max-w-xs text-center animate-fade-in-up parchment-panel"><h3 class="text-xl font-semibold mb-4 text-[#5a3d1d]">בחר מספר צעדים</h3><div class="grid grid-cols-3 gap-4 justify-items-center">${numbersHTML}</div><button onclick="closeNumberPad()" class="mt-6 bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 wooden-button rect">סגור</button></div>`;
+        }
+        function renderControls() {
+            const commandPad = document.getElementById('commandPad'), sequenceWrapper = document.getElementById('sequenceAreaWrapper');
+            
+            commandPad.innerHTML = COMMANDS_CONFIG.map(cmd => {
+                const icon = getCommandIcon(cmd.type);
+                const baseBtn = `<button onclick="handleCommand('${cmd.type}')" ${state.isExecuting ? 'disabled' : ''} class="command-button wooden-button round bg-[#d2b48c] w-16 h-16 flex items-center justify-center disabled:opacity-50">${icon}</button>`;
+                if (!cmd.hasSteps) return `<div class="turn-button-wrapper">${baseBtn}</div>`;
+                const steps = cmd.type === CommandType.Forward ? state.forwardSteps : state.backwardSteps;
+                return `<div class="flex flex-col items-center gap-2">${baseBtn}<button onclick="openNumberPad('${cmd.type}')" ${state.isExecuting ? 'disabled' : ''} class="w-16 h-8 text-center rounded-md border-2 border-[#8B5A2B] bg-white text-[#5a3d1d] font-bold text-lg disabled:opacity-50 wooden-button rect">${steps}</button></div>`;
+            }).join('');
+
+            const currentLevel = LEVELS.find(l => l.id === state.currentLevelId);
+            let sequenceContentHTML = '';
+            if (currentLevel.isPractice) {
+                sequenceContentHTML = `<p class="w-full text-center text-gray-500 italic p-4">מצב תרגול: כל פקודה מתבצעת מיידית.</p>`;
+            } else if (state.sequence.length === 0) {
+                sequenceContentHTML = `<p class="w-full text-center text-gray-500 italic p-4">האלגוריתם שלך יופיע כאן...</p>`;
+            } else {
+                sequenceContentHTML = state.sequence.map((cmd, idx) => {
+                    const icon = getCommandIcon(cmd.type);
+                    const isTurn = cmd.type.includes('Turn');
+                    return `<div onclick="selectSequenceItem(${idx})" class="relative flex items-center justify-center h-12 w-12 rounded-lg text-white font-bold transition-all cursor-pointer wooden-button rect bg-[#d2b48c] ${idx === state.selectedSequenceIndex ? 'sequence-item-selected' : ''} ${idx === state.executingIndex ? 'ring-4 ring-blue-500' : ''}">${icon}${!isTurn ? `<span class="absolute -top-2 -right-2 bg-white text-blue-700 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-blue-500">${cmd.steps}</span>` : ''}</div>`;
+                }).join('');
+            }
+            
+            const deleteButtonHTML = state.selectedSequenceIndex !== -1 && !currentLevel.isPractice
+                ? `<button onclick="deleteSelectedSequenceItem()" ${state.isExecuting ? 'disabled' : ''} class="w-full bg-orange-500 text-white p-3 font-bold text-lg wooden-button rect disabled:opacity-50">מחק פקודה</button>`
+                : '';
+
+            const runClearButtonsHTML = `<div class="flex gap-2">
+                    <button onclick="runSequence()" ${(state.sequence.length === 0 || state.isExecuting) ? 'disabled' : ''} class="w-full bg-blue-600 text-white p-3 font-bold text-lg wooden-button rect disabled:opacity-50">בצע!</button>
+                    <button onclick="handleClear()" ${state.isExecuting ? 'disabled' : ''} class="w-full bg-red-600 text-white p-3 font-bold text-lg wooden-button rect disabled:opacity-50">נקה</button>
+                </div>`;
+            
+            let actionButtonsHTML = '';
+            if (currentLevel.isPractice) {
+                actionButtonsHTML = `<button onclick="handleClear()" class="w-full bg-red-600 text-white p-3 font-bold text-lg wooden-button rect">אתחל</button>`;
+            } else {
+                const deleteContainerHTML = deleteButtonHTML ? `<div>${deleteButtonHTML}</div>` : '';
+                actionButtonsHTML = `
+                    <div class="grid ${deleteButtonHTML ? 'grid-cols-2' : 'grid-cols-1'} gap-2">
+                        ${deleteContainerHTML}
+                        ${runClearButtonsHTML}
+                    </div>
+                `;
+            }
+
+            sequenceWrapper.innerHTML = `<div class="min-h-[80px] flex-grow flex flex-wrap content-start gap-2 p-2 border-2 border-dashed border-[#c1a37c] rounded-lg bg-[#fdf5e6]/50">${sequenceContentHTML}</div><div class="mt-4 space-y-2">${actionButtonsHTML}</div>`;
+        }
+
+        function renderAll() { renderGrid(); renderControls(); renderLevelSelector(); renderNumberPad(); }
+
+        // =================================================
+        // 5. אינטראקציה (Handlers)
+        // =================================================
+        window.selectSequenceItem = (index) => { if (!state.isExecuting) { state.selectedSequenceIndex = state.selectedSequenceIndex === index ? -1 : index; renderControls(); } };
+        window.deleteSelectedSequenceItem = () => { if (!state.isExecuting && state.selectedSequenceIndex > -1) { state.sequence.splice(state.selectedSequenceIndex, 1); state.selectedSequenceIndex = -1; renderControls(); } };
+        window.openNumberPad = (type) => { if (!state.isExecuting) { state.isNumberPadOpen = true; state.numberPadTarget = type; renderNumberPad(); } };
+        window.closeNumberPad = () => { state.isNumberPadOpen = false; renderNumberPad(); };
+        window.selectNumber = (num) => { if (state.numberPadTarget === CommandType.Forward) state.forwardSteps = num; else state.backwardSteps = num; closeNumberPad(); renderControls(); };
+        window.handleLevelChange = (id) => { if (!state.isExecuting) loadLevel(id); };
+        window.handleCommand = async (type) => {
+            if (state.isExecuting) return;
+            state.selectedSequenceIndex = -1;
+            const isMovement = type === CommandType.Forward || type === CommandType.Backward;
+            const steps = isMovement ? (type === CommandType.Forward ? state.forwardSteps : state.backwardSteps) : 1;
+            const command = { type, steps };
+            if (LEVELS.find(l => l.id === state.currentLevelId).isPractice) {
+                state.isExecuting = true; renderAll();
+                const result = await executeCommandList([command], state.beeBotState);
+                const targetReached = result.finalState.position.x === state.gridState.targetPosition.x && result.finalState.position.y === state.gridState.targetPosition.y;
+                if (result.success && targetReached) {
+                    setFeedback("מעולה! עוברים לשלב הבא...", 'success');
+                    setTimeout(goToNextLevel, 1500);
+                } else {
+                    state.isExecuting = false;
+                    if (result.success) setFeedback(`בוצע.`, 'info');
+                    renderAll();
+                }
+            } else { state.sequence.push(command); renderControls(); }
+        };
+        window.handleClear = () => { if (!state.isExecuting) loadLevel(state.currentLevelId); };
+        window.runSequence = async () => {
+            const level = LEVELS.find(l => l.id === state.currentLevelId);
+            if (state.isExecuting || level.isPractice || state.sequence.length === 0) return;
+            state.selectedSequenceIndex = -1; state.isExecuting = true; renderAll();
+            const initialBeeState = { position: { ...level.startPosition }, rotation: ROTATION_MAP[level.startDirection] };
+            state.beeBotState = initialBeeState; renderGrid();
+            setFeedback("מבצע את האלגוריתם...", 'info');
+            await new Promise(r => setTimeout(r, 500));
+            const result = await executeCommandList(state.sequence, initialBeeState);
+            state.executingIndex = -1;
+            const targetReached = result.success && result.finalState.position.x === state.gridState.targetPosition.x && result.finalState.position.y === state.gridState.targetPosition.y;
+            if (targetReached) {
+                setFeedback("מצוין! עוברים לשלב הבא...", 'success');
+                setTimeout(goToNextLevel, 2000);
+            } else {
+                if (result.success) setFeedback("האלגוריתם הסתיים, אך לא הגעת ליעד.", 'warning');
+                state.isExecuting = false;
+                renderAll();
+            }
+        };
+
+        // =================================================
+        // 6. אתחול
+        // =================================================
+        window.onload = () => loadLevel(state.currentLevelId);
+
+    </script>
+</body>
+</html>
