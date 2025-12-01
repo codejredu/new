@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -156,7 +155,10 @@
             { type: CommandType.TurnLeft, hasSteps: false },
         ];
         const LEVELS = [
-            { id: 0, name: 'תרגול מיידי', isPractice: true, size: { rows: 5, cols: 5 }, startPosition: { x: 2, y: 3 }, startDirection: 'North', targetPosition: { x: 4, y: 4 }, obstacles: [], },
+            {
+                id: 0, name: 'תרגול', isPractice: true, size: { rows: 6, cols: 6 }, startPosition: { x: 0, y: 5 }, startDirection: 'North', targetPosition: { x: 5, y: 5 },
+                obstacles: [ {x:1, y:0}, {x:1, y:1}, {x:1, y:2}, {x:1, y:3}, {x:1, y:4}, {x:4, y:1}, {x:4, y:2}, {x:4, y:3}, {x:4, y:4}, {x:4, y:5} ],
+            },
             { id: 1, name: 'אתגר 1', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPosition: { x: 4, y: 0 }, obstacles: [], },
             { id: 2, name: 'אתגר 2', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 2 }, startDirection: 'East', targetPosition: { x: 4, y: 2 }, obstacles: [{x: 2, y: 2}], },
             { id: 3, name: 'אתגר 3', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 2, y: 4 }, startDirection: 'North', targetPosition: { x: 4, y: 0 }, obstacles: [ {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 4, y: 1} ], },
@@ -173,11 +175,19 @@
                     {x:3, y:3}, {x:4, y:3}, {x:5, y:3}, {x:1, y:5}, {x:2, y:5}, {x:3, y:5}, {x:4, y:5}, {x:5, y:5},
                 ]
             },
-            { id: 7, name: 'אתגר 7', isPractice: false, size: { rows: 10, cols: 10 }, startPosition: { x: 0, y: 9 }, startDirection: 'North', targetPosition: { x: 9, y: 0 }, obstacles: [
-                ...Array.from({length:9}, (v,i)=>({x:1, y:i+1})), ...Array.from({length:9}, (v,i)=>({x:3, y:i})),
-                ...Array.from({length:9}, (v,i)=>({x:5, y:i+1})), ...Array.from({length:9}, (v,i)=>({x:7, y:i})),
-                ...Array.from({length:9}, (v,i)=>({x:9, y:i+1}))
-            ] }
+            {
+                id: 7, name: 'אתגר 7', isPractice: false, size: { rows: 10, cols: 10 }, startPosition: { x: 0, y: 9 }, startDirection: 'North', targetPosition: { x: 9, y: 0 }, 
+                obstacles: [
+                    ...Array.from({length:9}, (v,i)=>({x:1, y:i})),
+                    ...Array.from({length:9}, (v,i)=>({x:2, y:i+1})),
+                    ...Array.from({length:9}, (v,i)=>({x:3, y:i})),
+                    ...Array.from({length:9}, (v,i)=>({x:4, y:i+1})),
+                    ...Array.from({length:9}, (v,i)=>({x:5, y:i})),
+                    ...Array.from({length:9}, (v,i)=>({x:6, y:i+1})),
+                    ...Array.from({length:9}, (v,i)=>({x:7, y:i})),
+                    ...Array.from({length:9}, (v,i)=>({x:8, y:i+1})),
+                ]
+            }
         ];
         const ROTATION_MAP = { 'North': 90, 'East': 180, 'South': 270, 'West': 0 };
         const REVERSE_ROTATION_MAP = { 90: 'North', 180: 'East', 270: 'South', 0: 'West' };
@@ -239,7 +249,9 @@
         function handleLevelCompletion() {
              const currentLevel = LEVELS.find(l => l.id === state.currentLevelId);
             if (currentLevel.isPractice) {
-                goToNextLevel();
+                setFeedback("מעולה! סיימת את התרגול!", 'success');
+                // In practice, we don't auto-advance or give points. Just reset.
+                setTimeout(() => loadLevel(state.currentLevelId), 2000);
                 return;
             }
 
@@ -421,11 +433,7 @@
                 const result = await executeCommandList([command], state.beeBotState);
                  const targetReached = result.finalState.position.x === state.gridState.targetPosition.x && result.finalState.position.y === state.gridState.targetPosition.y;
                 if (result.success && targetReached) {
-                    setFeedback("מעולה! הגעת ליעד בתרגול!", 'success');
-                     setTimeout(() => { 
-                         state.isExecuting = false; 
-                         loadLevel(state.currentLevelId); 
-                     }, 2000);
+                    handleLevelCompletion(); // Use the central handler
                 } else {
                     state.isExecuting = false;
                     if (result.success) setFeedback(`בוצע.`, 'info');
