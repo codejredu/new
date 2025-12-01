@@ -86,11 +86,18 @@
         </header>
         
         <main class="workbench-container">
-            <!-- Level Selector remains outside the main grid/controls split for better layout -->
-            <div class="parchment-panel mb-6 p-4">
-                <label class="block text-xl font-bold mb-3 text-[#5a3d1d] text-center">בחר אתגר:</label>
-                <div id="levelSelectorGrid" class="flex flex-wrap gap-3 justify-center">
-                    <!-- Level squares will be rendered here -->
+             <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                <!-- Level Selector -->
+                <div class="parchment-panel p-4 flex-grow">
+                    <label class="block text-xl font-bold mb-3 text-[#5a3d1d] text-center">בחר אתגר:</label>
+                    <div id="levelSelectorGrid" class="flex flex-wrap gap-3 justify-center">
+                        <!-- Level squares will be rendered here -->
+                    </div>
+                </div>
+                <!-- Score Panel -->
+                <div class="parchment-panel p-4 flex flex-col items-center justify-center">
+                    <div class="text-xl font-bold text-[#5a3d1d]">ניקוד</div>
+                    <div id="scoreDisplay" class="text-4xl font-bold text-green-700">0</div>
                 </div>
             </div>
 
@@ -151,7 +158,7 @@
         const LEVELS = [
             { id: 0, name: 'תרגול מיידי', isPractice: true, size: { rows: 5, cols: 5 }, startPosition: { x: 2, y: 3 }, startDirection: 'North', targetPosition: { x: 4, y: 4 }, obstacles: [], },
             { id: 1, name: 'אתגר 1', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPosition: { x: 4, y: 0 }, obstacles: [], },
-            { id: 2, name: 'אתגר 2', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPosition: { x: 1, y: 1 }, obstacles: [{x: 2, y: 1}], },
+            { id: 2, name: 'אתגר 2', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 2 }, startDirection: 'East', targetPosition: { x: 4, y: 2 }, obstacles: [{x: 2, y: 2}], },
             { id: 3, name: 'אתגר 3', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 2, y: 4 }, startDirection: 'North', targetPosition: { x: 4, y: 0 }, obstacles: [ {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 4, y: 1} ], },
             { id: 4, name: 'אתגר 4', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 4 }, startDirection: 'North', targetPosition: { x: 4, y: 4 }, obstacles: [ {x:1, y:1}, {x:1, y:2}, {x:1, y:3}, {x:1, y:4}, {x:3, y:0}, {x:3, y:1}, {x:3, y:2}, {x:3, y:3} ], },
             {
@@ -187,6 +194,8 @@
             executingIndex: -1,
             isExecuting: false,
             forwardSteps: 1, backwardSteps: 1, isNumberPadOpen: false, numberPadTarget: null,
+            score: 0,
+            maxLevelUnlocked: 1, // Start with level 1 unlocked
         };
 
         // =================================================
@@ -211,22 +220,51 @@
             }
             return { success: true, newState };
         }
+
         function loadLevel(levelId) {
             const level = LEVELS.find(l => l.id === levelId) || LEVELS[0];
+            if (!level.isPractice && level.id > state.maxLevelUnlocked) { return; }
+
+            if (level.isPractice) {
+                state.score = 0;
+                state.maxLevelUnlocked = 1;
+            }
+
             const obsSet = new Set(level.obstacles.map(o => `${o.x},${o.y}`));
             state = { ...state, currentLevelId: levelId, gridState: { size: level.size, targetPosition: level.targetPosition, obstacles: obsSet }, beeBotState: { position: { ...level.startPosition }, direction: level.startDirection, rotation: ROTATION_MAP[level.startDirection] }, sequence: [], selectedSequenceIndex: -1, executingIndex: -1, isExecuting: false, forwardSteps: 1, backwardSteps: 1 };
             setFeedback(`שלב '${level.name}' נטען.`, 'info');
             renderAll();
         }
+        
+        function handleLevelCompletion() {
+             const currentLevel = LEVELS.find(l => l.id === state.currentLevelId);
+            if (currentLevel.isPractice) {
+                goToNextLevel();
+                return;
+            }
+
+            const points = currentLevel.id <= 5 ? 5 : 10;
+            state.score += points;
+
+            if (currentLevel.id === state.maxLevelUnlocked) {
+                state.maxLevelUnlocked++;
+            }
+            setFeedback(`הצלחת! +${points} נקודות!`, 'success');
+            setTimeout(goToNextLevel, 2000);
+        }
+
         function goToNextLevel() {
             const currentLevelIndex = LEVELS.findIndex(l => l.id === state.currentLevelId);
             const nextLevel = LEVELS[currentLevelIndex + 1];
-            if (nextLevel) loadLevel(nextLevel.id);
-            else {
+            if (nextLevel && !nextLevel.isPractice) {
+                loadLevel(nextLevel.id);
+            } else {
                 setFeedback("כל הכבוד! סיימת את כל האתגרים! 🎉", 'success');
-                setTimeout(() => loadLevel(LEVELS[0].id), 3000);
+                // Optional: reset to practice after a delay
+                setTimeout(() => loadLevel(0), 3000);
             }
         }
+        
         async function executeCommandList(commands, initialBeeState) {
             let currentState = { ...initialBeeState };
             let wasSuccessful = true;
@@ -256,12 +294,12 @@
         function setFeedback(msg, type) {
             const el = document.getElementById('feedback');
             const styles = { info: "text-[#5a3d1d]", success: "text-green-700 font-bold", error: "text-red-700 font-bold", warning: "text-orange-600 font-bold" };
-            el.innerHTML = msg; // Use innerHTML to allow for simple formatting if needed
+            el.innerHTML = msg; 
             el.className = `parchment-panel p-4 text-center font-semibold text-lg transition-all duration-300 ${styles[type]}`;
         }
         const getBeeBotSVG = (rotation) => `<img src="https://codejredu.github.io/claudejr/bee-icon1.svg" alt="Bee-Bot" class="bee-bot absolute w-[90%] h-[90%] top-[5%] left-[5%] z-20" style="transform: rotate(${rotation - 90}deg);" />`;
         const getBushSVG = (x, y) => {
-            const bushIndex = (x * 3 + y * 5) % 3; // consistent but varied bush
+            const bushIndex = (x * 3 + y * 5) % 3;
             const bushes = [
                 `<svg viewBox="0 0 100 100"><path d="M 20 80 C 10 80, 10 60, 25 60 S 40 40, 50 50 S 60 40, 75 60 S 90 80, 80 80 Z" fill="#65a30d"/><circle cx="30" cy="55" r="8" fill="#fb7185"/><circle cx="50" cy="45" r="10" fill="#f472b6"/><circle cx="70" cy="55" r="8" fill="#e879f9"/></svg>`,
                 `<svg viewBox="0 0 100 100"><path d="M 20 80 Q 50 40, 80 80 Z" fill="#4d7c0f"/><path d="M 30 80 Q 50 60, 70 80 Z" fill="#65a30d"/><circle cx="35" cy="68" r="7" fill="#facc15"/><circle cx="50" cy="58" r="9" fill="#fbbf24"/><circle cx="65" cy="68" r="7" fill="#f59e0b"/></svg>`,
@@ -273,11 +311,13 @@
             const container = document.getElementById('levelSelectorGrid');
             container.innerHTML = LEVELS.map(level => {
                 const isCurrent = level.id === state.currentLevelId;
-                const buttonText = level.isPractice ? 'תרגול' : level.id;
-                const baseClasses = "w-14 h-14 flex items-center justify-center font-bold text-lg transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed wooden-button rect";
+                const isLocked = !level.isPractice && level.id > state.maxLevelUnlocked;
+                const buttonText = level.isPractice ? 'תרגול' : (isLocked ? '🔒' : level.id);
+                const baseClasses = "w-14 h-14 flex items-center justify-center font-bold text-lg transition-colors shadow-md disabled:opacity-50 wooden-button rect";
                 const activeClasses = "bg-green-600 text-white";
+                const lockedClasses = "bg-gray-400 text-gray-700 cursor-not-allowed";
                 const inactiveClasses = "bg-[#d2b48c] text-[#5a3d1d] hover:bg-[#c1a37c]";
-                return `<button onclick="handleLevelChange(${level.id})" class="${baseClasses} ${isCurrent ? activeClasses : inactiveClasses}" ${state.isExecuting ? 'disabled' : ''}>${buttonText}</button>`;
+                return `<button onclick="handleLevelChange(${level.id})" class="${baseClasses} ${isCurrent ? activeClasses : (isLocked ? lockedClasses : inactiveClasses)}" ${isLocked || state.isExecuting ? 'disabled' : ''}>${buttonText}</button>`;
             }).join('');
         }
         function renderGrid() {
@@ -295,6 +335,9 @@
                 return `<div class="relative ${borderClass} ${bgClass} flex items-center justify-center">${content}</div>`;
             }).join('');
             container.innerHTML = `<div dir="ltr" class="planter-box-grid grid w-full max-w-[600px] aspect-square mx-auto p-2" style="grid-template-columns: repeat(${size.cols}, 1fr); grid-template-rows: repeat(${size.rows}, 1fr);">${cellsHTML}</div>`;
+        }
+        function renderScore() {
+            document.getElementById('scoreDisplay').textContent = state.score;
         }
         const getCommandIcon = (cmdType) => ({ [CommandType.Forward]: `<img src="https://codejredu.github.io/test/assets/blocklyicon/fd.svg" alt="Forward" class="w-10 h-10">`, [CommandType.Backward]: `<img src="https://codejredu.github.io/test/assets/blocklyicon/bk.svg" alt="Backward" class="w-10 h-10">`, [CommandType.TurnRight]: `<img src="https://codejredu.github.io/test/assets/blocklyicon/rtbee.svg" alt="Turn Right" class="w-10 h-10">`, [CommandType.TurnLeft]: `<img src="https://codejredu.github.io/test/assets/blocklyicon/ltbee.svg" alt="Turn Left" class="w-10 h-10">` }[cmdType] || '?');
         function renderNumberPad() {
@@ -342,11 +385,13 @@
             if (currentLevel.isPractice) {
                 actionButtonsHTML = `<button onclick="handleClear()" class="w-full bg-red-600 text-white p-3 font-bold text-lg wooden-button rect">אתחל</button>`;
             } else {
-                const deleteContainerHTML = deleteButtonHTML ? `<div>${deleteButtonHTML}</div>` : '';
+                const deleteContainerClass = deleteButtonHTML ? 'flex-1' : 'hidden';
+                const runClearContainerClass = 'flex flex-1 gap-2';
+
                 actionButtonsHTML = `
-                    <div class="grid ${deleteButtonHTML ? 'grid-cols-2' : 'grid-cols-1'} gap-2">
-                        ${deleteContainerHTML}
-                        ${runClearButtonsHTML}
+                    <div class="flex gap-2">
+                        <div class="${deleteContainerClass}">${deleteButtonHTML}</div>
+                        <div class="${runClearContainerClass}">${runClearButtonsHTML}</div>
                     </div>
                 `;
             }
@@ -354,7 +399,7 @@
             sequenceWrapper.innerHTML = `<div class="min-h-[80px] flex-grow flex flex-wrap content-start gap-2 p-2 border-2 border-dashed border-[#c1a37c] rounded-lg bg-[#fdf5e6]/50">${sequenceContentHTML}</div><div class="mt-4 space-y-2">${actionButtonsHTML}</div>`;
         }
 
-        function renderAll() { renderGrid(); renderControls(); renderLevelSelector(); renderNumberPad(); }
+        function renderAll() { renderGrid(); renderControls(); renderLevelSelector(); renderNumberPad(); renderScore(); }
 
         // =================================================
         // 5. אינטראקציה (Handlers)
@@ -374,10 +419,13 @@
             if (LEVELS.find(l => l.id === state.currentLevelId).isPractice) {
                 state.isExecuting = true; renderAll();
                 const result = await executeCommandList([command], state.beeBotState);
-                const targetReached = result.finalState.position.x === state.gridState.targetPosition.x && result.finalState.position.y === state.gridState.targetPosition.y;
+                 const targetReached = result.finalState.position.x === state.gridState.targetPosition.x && result.finalState.position.y === state.gridState.targetPosition.y;
                 if (result.success && targetReached) {
-                    setFeedback("מעולה! עוברים לשלב הבא...", 'success');
-                    setTimeout(goToNextLevel, 1500);
+                    setFeedback("מעולה! הגעת ליעד בתרגול!", 'success');
+                     setTimeout(() => { 
+                         state.isExecuting = false; 
+                         loadLevel(state.currentLevelId); 
+                     }, 2000);
                 } else {
                     state.isExecuting = false;
                     if (result.success) setFeedback(`בוצע.`, 'info');
@@ -398,8 +446,7 @@
             state.executingIndex = -1;
             const targetReached = result.success && result.finalState.position.x === state.gridState.targetPosition.x && result.finalState.position.y === state.gridState.targetPosition.y;
             if (targetReached) {
-                setFeedback("מצוין! עוברים לשלב הבא...", 'success');
-                setTimeout(goToNextLevel, 2000);
+                handleLevelCompletion();
             } else {
                 if (result.success) setFeedback("האלגוריתם הסתיים, אך לא הגעת ליעד.", 'warning');
                 state.isExecuting = false;
