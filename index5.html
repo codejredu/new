@@ -61,11 +61,6 @@
             transform: scale(1.1);
         }
 
-        .turn-button-wrapper {
-            display: flex;
-            justify-content: center;
-        }
-
         @keyframes fade-in-up {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -114,8 +109,8 @@
                         <!-- Command Pad -->
                         <div>
                             <h2 class="text-2xl font-bold mb-4 text-center text-[#5a3d1d]">פקודות</h2>
-                            <div id="commandPad" dir="ltr" class="grid grid-cols-2 gap-4 items-start">
-                                <!-- Command buttons will be rendered here -->
+                            <div id="commandPad" class="grid grid-cols-3 gap-2 justify-items-center items-center">
+                                <!-- D-Pad layout is rendered here by JS -->
                             </div>
                         </div>
 
@@ -148,12 +143,7 @@
         // 1. הגדרות וקבועים
         // =================================================
         const CommandType = { Forward: 'Forward', Backward: 'Backward', TurnRight: 'TurnRight', TurnLeft: 'TurnLeft' };
-        const COMMANDS_CONFIG = [
-            { type: CommandType.Forward, hasSteps: true },
-            { type: CommandType.Backward, hasSteps: true },
-            { type: CommandType.TurnRight, hasSteps: false },
-            { type: CommandType.TurnLeft, hasSteps: false },
-        ];
+        
         const LEVELS = [
             {
                 id: 0, name: 'תרגול', isPractice: true, size: { rows: 6, cols: 6 }, startPosition: { x: 0, y: 5 }, startDirection: 'North', targetPosition: { x: 5, y: 5 },
@@ -178,19 +168,54 @@
             {
                 id: 7, name: 'אתגר 7', isPractice: false, size: { rows: 10, cols: 10 }, startPosition: { x: 0, y: 9 }, startDirection: 'North', targetPosition: { x: 9, y: 0 }, 
                 obstacles: [
-                    ...Array.from({length:9}, (v,i)=>({x:1, y:i})),
-                    ...Array.from({length:9}, (v,i)=>({x:2, y:i+1})),
+                    ...Array.from({length:8}, (v,i)=>({x:1, y:i+1})),
                     ...Array.from({length:9}, (v,i)=>({x:3, y:i})),
-                    ...Array.from({length:9}, (v,i)=>({x:4, y:i+1})),
-                    ...Array.from({length:9}, (v,i)=>({x:5, y:i})),
-                    ...Array.from({length:9}, (v,i)=>({x:6, y:i+1})),
+                    ...Array.from({length:8}, (v,i)=>({x:5, y:i+1})),
                     ...Array.from({length:9}, (v,i)=>({x:7, y:i})),
-                    ...Array.from({length:9}, (v,i)=>({x:8, y:i+1})),
+                    {x:9, y:1}
+                ]
+            },
+            {
+                id: 8, name: 'אתגר 8', isPractice: false, size: { rows: 10, cols: 10 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPosition: { x: 5, y: 4 },
+                obstacles: [
+                    ...Array.from({length: 8}, (v,i)=>({x:i+1, y:1})), 
+                    ...Array.from({length: 8}, (v,i)=>({x:8, y:i+1})), 
+                    ...Array.from({length: 8}, (v,i)=>({x:i, y:8})),   
+                    ...Array.from({length: 6}, (v,i)=>({x:1, y:i+2})).filter(p => p.y !== 3), 
+                    ...Array.from({length: 6}, (v,i)=>({x:i+2, y:2})), 
+                    ...Array.from({length: 5}, (v,i)=>({x:6, y:i+3})), 
+                    ...Array.from({length: 4}, (v,i)=>({x:i+2, y:6})),
+                    ...Array.from({length: 2}, (v,i)=>({x:3, y:i+4})),
+                ]
+            },
+            {
+                id: 9, name: 'אתגר 9', isPractice: false, size: { rows: 12, cols: 12 }, startPosition: { x: 0, y: 11 }, startDirection: 'North', targetPosition: { x: 11, y: 0 },
+                obstacles: [
+                    {x:2, y:2}, {x:2, y:3}, {x:3, y:2}, {x:3, y:3},
+                    {x:2, y:8}, {x:2, y:9}, {x:3, y:8}, {x:3, y:9},
+                    {x:5, y:5}, {x:5, y:6}, {x:6, y:5}, {x:6, y:6},
+                    {x:8, y:2}, {x:8, y:3}, {x:9, y:2}, {x:9, y:3},
+                    {x:8, y:8}, {x:8, y:9}, {x:9, y:8}, {x:9, y:9},
+                ]
+            },
+            {
+                id: 10, name: 'אתגר 10', isPractice: false, size: { rows: 12, cols: 12 }, startPosition: { x: 0, y: 6 }, startDirection: 'East', targetPosition: { x: 11, y: 5 },
+                obstacles: [
+                    ...Array.from({length: 6}, (v,i)=>({x:i+3, y:3})),
+                    ...Array.from({length: 6}, (v,i)=>({x:i+3, y:4})),
+                    ...Array.from({length: 6}, (v,i)=>({x:i+3, y:7})),
+                    ...Array.from({length: 6}, (v,i)=>({x:i+3, y:8})),
+                    ...Array.from({length: 12}, (v,i)=>({x:1, y:i})).filter(p => p.y !== 6),
+                    ...Array.from({length: 12}, (v,i)=>({x:10, y:i})).filter(p => p.y !== 5),
+                    {x:3, y:5}, {x:3, y:6},
+                    {x:8, y:5}, {x:8, y:6},
                 ]
             }
         ];
         const ROTATION_MAP = { 'North': 90, 'East': 180, 'South': 270, 'West': 0 };
         const REVERSE_ROTATION_MAP = { 90: 'North', 180: 'East', 270: 'South', 0: 'West' };
+
+        const successSound = new Audio('https://codejredu.github.io/test/assets/sound/winner.mp3');
 
         // =================================================
         // 2. מצב המשחק (State)
@@ -207,6 +232,10 @@
             score: 0,
             maxLevelUnlocked: 1, // Start with level 1 unlocked
         };
+
+        // Cheat code state
+        let targetClickCount = 0;
+        let lastTargetClickTime = 0;
 
         // =================================================
         // 3. לוגיקת המשחק
@@ -247,7 +276,12 @@
         }
         
         function handleLevelCompletion() {
-             const currentLevel = LEVELS.find(l => l.id === state.currentLevelId);
+            try {
+                successSound.currentTime = 0; // Rewind to start
+                successSound.play();
+            } catch(e) { console.warn("Could not play sound", e); }
+
+            const currentLevel = LEVELS.find(l => l.id === state.currentLevelId);
             if (currentLevel.isPractice) {
                 setFeedback("מעולה! סיימת את התרגול!", 'success');
                 // In practice, we don't auto-advance or give points. Just reset.
@@ -340,7 +374,7 @@
                 const isTarget = x === targetPosition.x && y === targetPosition.y;
                 const isObstacle = obstacles.has(`${x},${y}`);
                 const isBeeHere = x === state.beeBotState.position.x && y === state.beeBotState.position.y;
-                let content = isObstacle ? getBushSVG(x, y) : isTarget ? '<span class="text-4xl">🎯</span>' : '';
+                let content = isObstacle ? getBushSVG(x, y) : isTarget ? '<span class="text-4xl" onclick="handleTargetClick()">🎯</span>' : '';
                 if (isBeeHere) content += getBeeBotSVG(state.beeBotState.rotation);
                 const borderClass = 'border border-white/50';
                 const bgClass = isObstacle ? 'bg-green-900/30' : '';
@@ -360,15 +394,39 @@
             modal.innerHTML = `<div class="bg-[#fdf5e6] p-6 rounded-2xl shadow-xl w-full max-w-xs text-center animate-fade-in-up parchment-panel"><h3 class="text-xl font-semibold mb-4 text-[#5a3d1d]">בחר מספר צעדים</h3><div class="grid grid-cols-3 gap-4 justify-items-center">${numbersHTML}</div><button onclick="closeNumberPad()" class="mt-6 bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 wooden-button rect">סגור</button></div>`;
         }
         function renderControls() {
-            const commandPad = document.getElementById('commandPad'), sequenceWrapper = document.getElementById('sequenceAreaWrapper');
+            const commandPad = document.getElementById('commandPad');
+            const sequenceWrapper = document.getElementById('sequenceAreaWrapper');
             
-            commandPad.innerHTML = COMMANDS_CONFIG.map(cmd => {
-                const icon = getCommandIcon(cmd.type);
-                const baseBtn = `<button onclick="handleCommand('${cmd.type}')" ${state.isExecuting ? 'disabled' : ''} class="command-button wooden-button round bg-[#d2b48c] w-16 h-16 flex items-center justify-center disabled:opacity-50">${icon}</button>`;
-                if (!cmd.hasSteps) return `<div class="turn-button-wrapper">${baseBtn}</div>`;
-                const steps = cmd.type === CommandType.Forward ? state.forwardSteps : state.backwardSteps;
-                return `<div class="flex flex-col items-center gap-2">${baseBtn}<button onclick="openNumberPad('${cmd.type}')" ${state.isExecuting ? 'disabled' : ''} class="w-16 h-8 text-center rounded-md border-2 border-[#8B5A2B] bg-white text-[#5a3d1d] font-bold text-lg disabled:opacity-50 wooden-button rect">${steps}</button></div>`;
-            }).join('');
+            // New D-Pad Layout
+            const disabledAttr = state.isExecuting ? 'disabled' : '';
+            const forwardIcon = getCommandIcon(CommandType.Forward);
+            const backwardIcon = getCommandIcon(CommandType.Backward);
+            const leftIcon = getCommandIcon(CommandType.TurnLeft);
+            const rightIcon = getCommandIcon(CommandType.TurnRight);
+            const forwardSteps = state.forwardSteps;
+            const backwardSteps = state.backwardSteps;
+
+            commandPad.innerHTML = `
+                <!-- Row 1 -->
+                <div></div>
+                <div class="flex flex-col items-center gap-2">
+                    <button onclick="handleCommand('${CommandType.Forward}')" ${disabledAttr} class="command-button wooden-button round bg-[#d2b48c] w-16 h-16 flex items-center justify-center disabled:opacity-50">${forwardIcon}</button>
+                    <button onclick="openNumberPad('${CommandType.Forward}')" ${disabledAttr} class="w-16 h-8 text-center rounded-md border-2 border-[#8B5A2B] bg-white text-[#5a3d1d] font-bold text-lg disabled:opacity-50 wooden-button rect">${forwardSteps}</button>
+                </div>
+                <div></div>
+                <!-- Row 2 -->
+                <button onclick="handleCommand('${CommandType.TurnRight}')" ${disabledAttr} class="command-button wooden-button round bg-[#d2b48c] w-16 h-16 flex items-center justify-center disabled:opacity-50">${rightIcon}</button>
+                <div></div>
+                <button onclick="handleCommand('${CommandType.TurnLeft}')" ${disabledAttr} class="command-button wooden-button round bg-[#d2b48c] w-16 h-16 flex items-center justify-center disabled:opacity-50">${leftIcon}</button>
+                <!-- Row 3 -->
+                <div></div>
+                <div class="flex flex-col items-center gap-2">
+                    <button onclick="handleCommand('${CommandType.Backward}')" ${disabledAttr} class="command-button wooden-button round bg-[#d2b48c] w-16 h-16 flex items-center justify-center disabled:opacity-50">${backwardIcon}</button>
+                    <button onclick="openNumberPad('${CommandType.Backward}')" ${disabledAttr} class="w-16 h-8 text-center rounded-md border-2 border-[#8B5A2B] bg-white text-[#5a3d1d] font-bold text-lg disabled:opacity-50 wooden-button rect">${backwardSteps}</button>
+                </div>
+                <div></div>
+            `;
+
 
             const currentLevel = LEVELS.find(l => l.id === state.currentLevelId);
             let sequenceContentHTML = '';
@@ -416,6 +474,29 @@
         // =================================================
         // 5. אינטראקציה (Handlers)
         // =================================================
+        window.handleTargetClick = () => {
+            const now = Date.now();
+            if (now - lastTargetClickTime > 2000) { // Reset after 2 seconds
+                targetClickCount = 1;
+            } else {
+                targetClickCount++;
+            }
+            lastTargetClickTime = now;
+
+            if (targetClickCount >= 5) {
+                const totalLevels = LEVELS.filter(l => !l.isPractice).length;
+                if (state.maxLevelUnlocked < totalLevels) {
+                    state.maxLevelUnlocked = totalLevels;
+                    setFeedback("✨ כל השלבים פתוחים! ✨", 'success');
+                    renderLevelSelector();
+                } else {
+                    setFeedback("כל השלבים כבר פתוחים.", 'info');
+                }
+                targetClickCount = 0; // Reset
+            } else {
+                setFeedback(`לחיצה ${targetClickCount} מתוך 5 לפתיחת שלבים...`, 'info');
+            }
+        };
         window.selectSequenceItem = (index) => { if (!state.isExecuting) { state.selectedSequenceIndex = state.selectedSequenceIndex === index ? -1 : index; renderControls(); } };
         window.deleteSelectedSequenceItem = () => { if (!state.isExecuting && state.selectedSequenceIndex > -1) { state.sequence.splice(state.selectedSequenceIndex, 1); state.selectedSequenceIndex = -1; renderControls(); } };
         window.openNumberPad = (type) => { if (!state.isExecuting) { state.isNumberPadOpen = true; state.numberPadTarget = type; renderNumberPad(); } };
