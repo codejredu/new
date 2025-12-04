@@ -7,6 +7,10 @@
     <!-- טעינת Tailwind CSS ופונט Inter -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Swiper.js for Carousel -->
+    <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+
     <style>
         body { 
             font-family: 'Inter', sans-serif; 
@@ -18,14 +22,12 @@
             background-color: #8B5A2B; /* Wood color */
             background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png');
             border-radius: 2rem;
-            /* Padding is now handled by Tailwind classes on the element itself */
             box-shadow: 0 10px 20px rgba(0,0,0,0.3), inset 0 0 15px rgba(0,0,0,0.5);
             border: 4px solid #5a3d1d;
         }
 
         /* Game Grid - Planter Box Style */
         .planter-box-grid {
-            /* background-color is now controlled by a CSS variable */
             background-size: cover;
             background-position: center;
             border: 12px solid #5a3d1d;
@@ -60,6 +62,42 @@
             transform: scale(1.1);
         }
 
+        /* Swiper Carousel Styles */
+        .swiper-container {
+            width: 100%;
+            height: 100%;
+        }
+        .swiper-slide {
+            width: auto !important; /* Crucial for slidesPerView: 'auto' */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .swiper-button-next, .swiper-button-prev {
+            color: #5a3d1d !important;
+            background-color: #d2b48c; /* Matching command buttons */
+            border-radius: 50%;
+            width: 36px !important;
+            height: 36px !important;
+            
+            /* Styles from .wooden-button for consistency */
+            transition: all 0.1s ease;
+            box-shadow: 0 4px #5a3d1d;
+            border: 2px solid #5a3d1d;
+
+            /* Overrides for flexbox layout */
+            position: static !important;
+            margin-top: 0 !important;
+        }
+        .swiper-button-next:active, .swiper-button-prev:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px #5a3d1d;
+        }
+        .swiper-button-next:after, .swiper-button-prev:after {
+            font-size: 18px !important;
+            font-weight: bold;
+        }
+
         @keyframes fade-in-up {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -81,10 +119,16 @@
         <main class="workbench-container p-4 md:p-8">
              <div class="flex flex-col sm:flex-row gap-4 mb-6">
                 <!-- Level Selector -->
-                <div class="parchment-panel p-4 flex-grow">
+                <div class="parchment-panel p-4 flex-grow overflow-hidden">
                     <label class="block text-xl font-bold mb-3 text-[#5a3d1d] text-center">בחר אתגר:</label>
-                    <div id="levelSelectorGrid" class="flex flex-wrap gap-3 justify-center">
-                        <!-- Level squares will be rendered here -->
+                    <div class="flex items-center gap-2">
+                        <div class="swiper-button-prev"></div>
+                        <div id="levelSwiper" class="swiper-container flex-1 overflow-hidden">
+                            <div class="swiper-wrapper" id="levelSelectorGrid">
+                                <!-- Level slides will be rendered here -->
+                            </div>
+                        </div>
+                        <div class="swiper-button-next"></div>
                     </div>
                 </div>
                 <!-- Score Panel -->
@@ -316,6 +360,9 @@
             visitedTargets: new Set(),
         };
 
+        // UI state
+        let swiperInstance = null;
+        
         // Cheat code state
         let targetClickCount = 0;
         let lastTargetClickTime = 0;
@@ -349,7 +396,6 @@
 
             if (level.isPractice) {
                 state.score = 0;
-                // state.maxLevelUnlocked = 1; // Let's not reset this
             }
 
             const obsSet = new Set(level.obstacles.map(o => `${o.x},${o.y}`));
@@ -412,7 +458,6 @@
                     currentState = result.newState;
                     state.beeBotState = currentState;
                     
-                    // Check for target visit
                     const currentPosStr = `${currentState.position.x},${currentState.position.y}`;
                     if (state.gridState.targetPositions.some(p => p.x === currentState.position.x && p.y === currentState.position.y)) {
                         state.visitedTargets.add(currentPosStr);
@@ -454,8 +499,29 @@
                 const activeClasses = "bg-green-600 text-white";
                 const lockedClasses = "bg-gray-400 text-gray-700 cursor-not-allowed";
                 const inactiveClasses = "bg-[#d2b48c] text-[#5a3d1d] hover:bg-[#c1a37c]";
-                return `<button onclick="handleLevelChange(${level.id})" class="${baseClasses} ${isCurrent ? activeClasses : (isLocked ? lockedClasses : inactiveClasses)}" ${isLocked || state.isExecuting ? 'disabled' : ''}>${buttonText}</button>`;
+                
+                const buttonHTML = `<button onclick="handleLevelChange(${level.id})" class="${baseClasses} ${isCurrent ? activeClasses : (isLocked ? lockedClasses : inactiveClasses)}" ${isLocked || state.isExecuting ? 'disabled' : ''}>${buttonText}</button>`;
+                return `<div class="swiper-slide">${buttonHTML}</div>`;
             }).join('');
+            
+            if (swiperInstance) {
+                swiperInstance.update();
+            } else {
+                swiperInstance = new Swiper('#levelSwiper', {
+                    slidesPerView: 'auto',
+                    spaceBetween: 5,
+                    centeredSlides: false,
+                    loop: false,
+                    navigation: {
+                        nextEl: '.swiper-button-next',
+                        prevEl: '.swiper-button-prev',
+                    },
+                });
+            }
+            const currentLevelIndex = LEVELS.findIndex(l => l.id === state.currentLevelId);
+            if (currentLevelIndex > -1) {
+                swiperInstance.slideTo(currentLevelIndex, 0);
+            }
         }
         function renderGrid() {
             const container = document.getElementById('gridContainer');
@@ -477,7 +543,7 @@
                 const bgClass = isObstacle ? 'bg-green-900/30' : '';
                 return `<div class="relative ${borderClass} ${bgClass} flex items-center justify-center">${content}</div>`;
             }).join('');
-            container.innerHTML = `<div dir="ltr" id="gameGrid" class="planter-box-grid grid w-full max-w-[600px] aspect-square mx-auto p-2" style="grid-template-columns: repeat(${size.cols}, 1fr); grid-template-rows: repeat(${size.rows}, 1fr); background-color: var(--grid-bg-color);">${cellsHTML}</div>`;
+            container.innerHTML = `<div dir="ltr" id="gameGrid" class="planter-box-grid grid w-full max-w-[600px] aspect-square mx-auto p-2" style="grid-template-columns: repeat(${size.cols}, 1fr); grid-template-rows: repeat(${size.rows}, 1fr); background-color: var(--grid-bg-color, hsl(125, 50%, 85%)); --grid-border-color: var(--grid-border-color-val, hsl(125, 40%, 60%));">${cellsHTML}</div>`;
         }
         function renderScore() {
             document.getElementById('scoreDisplay').textContent = state.score;
@@ -523,7 +589,6 @@
                 <div></div>
             `;
 
-
             const currentLevel = LEVELS.find(l => l.id === state.currentLevelId);
             let sequenceContentHTML = '';
             if (currentLevel.isPractice) {
@@ -551,18 +616,15 @@
             if (currentLevel.isPractice) {
                 actionButtonsHTML = `<button onclick="handleClear()" class="w-full bg-red-600 text-white p-3 font-bold text-lg wooden-button rect">אתחל</button>`;
             } else {
-                const deleteContainerClass = deleteButtonHTML ? 'flex-1' : 'hidden';
-                const runClearContainerClass = 'flex flex-1 gap-2';
-
                 actionButtonsHTML = `
                     <div class="flex gap-2">
-                        <div class="${deleteContainerClass}">${deleteButtonHTML}</div>
-                        <div class="${runClearContainerClass}">${runClearButtonsHTML}</div>
+                        ${state.selectedSequenceIndex !== -1 ? `<div class="flex-1">${deleteButtonHTML}</div>` : ''}
+                        <div class="flex-1">${runClearButtonsHTML}</div>
                     </div>
                 `;
             }
 
-            sequenceWrapper.innerHTML = `<div class="min-h-[80px] max-h-40 overflow-y-auto flex-grow flex flex-wrap content-start gap-2 p-2 border-2 border-dashed border-[#c1a37c] rounded-lg bg-[#fdf5e6]/50">${sequenceContentHTML}</div><div class="mt-4 space-y-2">${actionButtonsHTML}</div>`;
+            sequenceWrapper.innerHTML = `<div class="min-h-[80px] max-h-40 overflow-y-auto flex-grow flex flex-wrap content-start justify-start gap-2 p-2 border-2 border-dashed border-[#c1a37c] rounded-lg bg-[#fdf5e6]/50">${sequenceContentHTML}</div><div class="mt-4 space-y-2">${actionButtonsHTML}</div>`;
         }
 
         function renderAll() { renderGrid(); renderControls(); renderLevelSelector(); renderNumberPad(); renderScore(); }
@@ -576,20 +638,18 @@
             const greenHue = 125;
             const hue = brownHue + ((greenHue - brownHue) * value / 100);
             
-            // Calculate colors
             const bgColor = `hsl(${hue}, 50%, 85%)`;
-            const borderColor = `hsl(${hue}, 40%, 60%)`; // Darker, less saturated for contrast
+            const borderColor = `hsl(${hue}, 40%, 60%)`;
 
-            // Set CSS variables on the container
-            const containerEl = document.getElementById('gridContainer');
-            if (containerEl) {
-                containerEl.style.setProperty('--grid-bg-color', bgColor);
-                containerEl.style.setProperty('--grid-border-color', borderColor);
+            const gridEl = document.getElementById('gameGrid');
+            if (gridEl) {
+                gridEl.style.setProperty('--grid-bg-color', bgColor);
+                gridEl.style.setProperty('--grid-border-color-val', borderColor);
             }
         };
         window.handleTargetClick = () => {
             const now = Date.now();
-            if (now - lastTargetClickTime > 2000) { // Reset after 2 seconds
+            if (now - lastTargetClickTime > 2000) {
                 targetClickCount = 1;
             } else {
                 targetClickCount++;
@@ -605,7 +665,7 @@
                 } else {
                     setFeedback("כל השלבים כבר פתוחים.", 'info');
                 }
-                targetClickCount = 0; // Reset
+                targetClickCount = 0;
             } else if (targetClickCount < 5){
                 setFeedback(`לחיצה ${targetClickCount} מתוך 5 לפתיחת שלבים...`, 'info');
             }
@@ -642,7 +702,7 @@
             
             state.selectedSequenceIndex = -1; 
             state.isExecuting = true;
-            state.visitedTargets.clear(); // Clear visited targets before a run
+            state.visitedTargets.clear();
             renderAll();
 
             const initialBeeState = { position: { ...level.startPosition }, rotation: ROTATION_MAP[level.startDirection] };
@@ -670,7 +730,6 @@
         // =================================================
         window.onload = () => {
             loadLevel(state.currentLevelId);
-            // Trigger the background color change on load to match the slider's initial value
             const initialSliderValue = document.getElementById('bgColorSlider').value;
             handleBackgroundColorChange({ target: { value: initialSliderValue } });
         };
