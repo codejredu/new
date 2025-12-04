@@ -10,8 +10,6 @@
     <style>
         body { 
             font-family: 'Inter', sans-serif; 
-            background-color: #e2f3e4; /* Light green-ish background */
-            background-image: url('https://www.transparenttextures.com/patterns/light-paper-fibers.png');
         }
         .character { transition: transform 0.3s ease-in-out; }
 
@@ -27,12 +25,13 @@
 
         /* Game Grid - Planter Box Style */
         .planter-box-grid {
-            background-image: url('https://codejredu.github.io/claudejr/grassfield.svg');
+            /* background-color is now controlled by a CSS variable */
             background-size: cover;
             background-position: center;
             border: 12px solid #5a3d1d;
             border-radius: 1rem;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.6);
+            transition: background-color 0.2s ease;
         }
 
         /* Control Panels - Parchment Style */
@@ -70,7 +69,7 @@
         }
     </style>
 </head>
-<body class="p-2 sm:p-4 md:p-8">
+<body class="bg-[#fdf5e6] p-2 sm:p-4 md:p-8">
 
     <div class="max-w-6xl mx-auto font-sans">
         
@@ -100,6 +99,19 @@
                 <!-- Game Grid -->
                 <div id="gridContainer" class="flex-grow">
                     <!-- The grid will be rendered here -->
+                </div>
+
+                <!-- Background Color Slider -->
+                <div class="parchment-panel p-4 text-center">
+                    <label for="bgColorSlider" class="block font-semibold mb-2 text-[#5a3d1d] md:hidden">שנה גוון רקע למשחק</label>
+                    <div class="flex items-center gap-4 md:flex-col md:h-full md:justify-center md:gap-y-4">
+                        <span class="font-bold text-green-800 md:order-first">ירוק</span>
+                        <input type="range" id="bgColorSlider" min="0" max="100" value="100" 
+                               class="w-full h-2 bg-[#d2b48c] rounded-lg appearance-none cursor-pointer 
+                                      md:w-2 md:h-64 md:[writing-mode:vertical-lr]" 
+                               oninput="handleBackgroundColorChange(event)">
+                        <span class="font-bold text-[#6b4226] md:order-last">חום</span>
+                    </div>
                 </div>
 
                 <!-- Controls and Sequence Panel -->
@@ -146,70 +158,140 @@
         
         const LEVELS = [
             {
-                id: 0, name: 'תרגול', isPractice: true, size: { rows: 6, cols: 6 }, startPosition: { x: 0, y: 5 }, startDirection: 'North', targetPosition: { x: 5, y: 5 },
+                id: 0, name: 'תרגול', isPractice: true, size: { rows: 6, cols: 6 }, startPosition: { x: 0, y: 5 }, startDirection: 'North', targetPositions: [{ x: 5, y: 5 }],
                 obstacles: [ {x:1, y:0}, {x:1, y:1}, {x:1, y:2}, {x:1, y:3}, {x:1, y:4}, {x:4, y:1}, {x:4, y:2}, {x:4, y:3}, {x:4, y:4}, {x:4, y:5} ],
             },
-            { id: 1, name: 'אתגר 1', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPosition: { x: 4, y: 0 }, obstacles: [], },
-            { id: 2, name: 'אתגר 2', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 2 }, startDirection: 'East', targetPosition: { x: 4, y: 2 }, obstacles: [{x: 2, y: 2}], },
-            { id: 3, name: 'אתגר 3', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 2, y: 4 }, startDirection: 'North', targetPosition: { x: 4, y: 0 }, obstacles: [ {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 4, y: 1} ], },
-            { id: 4, name: 'אתגר 4', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 4 }, startDirection: 'North', targetPosition: { x: 4, y: 4 }, obstacles: [ {x:1, y:1}, {x:1, y:2}, {x:1, y:3}, {x:1, y:4}, {x:3, y:0}, {x:3, y:1}, {x:3, y:2}, {x:3, y:3} ], },
+            { id: 1, name: 'אתגר 1', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPositions: [{ x: 4, y: 0 }], obstacles: [], },
+            { id: 2, name: 'אתגר 2', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 2 }, startDirection: 'East', targetPositions: [{ x: 4, y: 2 }], obstacles: [{x: 2, y: 2}], },
+            { id: 3, name: 'אתגר 3', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 2, y: 4 }, startDirection: 'North', targetPositions: [{ x: 4, y: 0 }], obstacles: [ {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 4, y: 1} ], },
+            { id: 4, name: 'אתגר 4', isPractice: false, size: { rows: 5, cols: 5 }, startPosition: { x: 0, y: 4 }, startDirection: 'North', targetPositions: [{ x: 4, y: 4 }], obstacles: [ {x:1, y:1}, {x:1, y:2}, {x:1, y:3}, {x:1, y:4}, {x:3, y:0}, {x:3, y:1}, {x:3, y:2}, {x:3, y:3} ], },
             {
-                id: 5, name: 'אתגר 5', isPractice: false, size: { rows: 6, cols: 6 }, startPosition: { x: 0, y: 5 }, startDirection: 'North', targetPosition: { x: 5, y: 0 }, obstacles: [
+                id: 5, name: 'אתגר 5', isPractice: false, size: { rows: 6, cols: 6 }, startPosition: { x: 0, y: 5 }, startDirection: 'North', targetPositions: [{ x: 5, y: 0 }], obstacles: [
                     {x:1, y:1}, {x:1, y:2}, {x:1, y:3}, {x:1, y:4}, {x:2, y:1}, {x:3, y:1}, {x:4, y:1},
                     {x:3, y:3}, {x:4, y:3}, {x:5, y:3}, {x:3, y:4}, {x:3, y:5},
                 ]
             },
             {
-                id: 6, name: 'אתגר 6', isPractice: false, size: { rows: 7, cols: 7 }, startPosition: { x: 6, y: 6 }, startDirection: 'West', targetPosition: { x: 0, y: 0 }, obstacles: [
+                id: 6, name: 'אתגר 6', isPractice: false, size: { rows: 7, cols: 7 }, startPosition: { x: 6, y: 6 }, startDirection: 'West', targetPositions: [{ x: 0, y: 0 }], obstacles: [
                     {x:0, y:1}, {x:1, y:1}, {x:2, y:1}, {x:3, y:1}, {x:4, y:1}, {x:1, y:3}, {x:2, y:3}, 
                     {x:3, y:3}, {x:4, y:3}, {x:5, y:3}, {x:1, y:5}, {x:2, y:5}, {x:3, y:5}, {x:4, y:5}, {x:5, y:5},
                 ]
             },
+            // ALL LEVELS FROM 7 ONWARDS ARE NOW 8x8
             {
-                id: 7, name: 'אתגר 7', isPractice: false, size: { rows: 10, cols: 10 }, startPosition: { x: 0, y: 9 }, startDirection: 'North', targetPosition: { x: 9, y: 0 }, 
+                id: 7, name: 'אתגר 7', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 7 }, startDirection: 'North', targetPositions: [{ x: 7, y: 0 }], 
                 obstacles: [
-                    ...Array.from({length:8}, (v,i)=>({x:1, y:i+1})),
-                    ...Array.from({length:9}, (v,i)=>({x:3, y:i})),
-                    ...Array.from({length:8}, (v,i)=>({x:5, y:i+1})),
-                    ...Array.from({length:9}, (v,i)=>({x:7, y:i})),
-                    {x:9, y:1}
+                    ...Array.from({length:7}, (v,i)=>({x:1, y:i+1})), // Wall with opening at y=0
+                    ...Array.from({length:7}, (v,i)=>({x:3, y:i})),   // Wall with opening at y=7
+                    ...Array.from({length:7}, (v,i)=>({x:5, y:i+1})), // Wall with opening at y=0
                 ]
             },
             {
-                id: 8, name: 'אתגר 8', isPractice: false, size: { rows: 10, cols: 10 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPosition: { x: 5, y: 4 },
+                id: 8, name: 'אתגר 8', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 0 }, startDirection: 'East', targetPositions: [{ x: 4, y: 3 }],
                 obstacles: [
-                    ...Array.from({length: 8}, (v,i)=>({x:i+1, y:1})), 
-                    ...Array.from({length: 8}, (v,i)=>({x:8, y:i+1})), 
-                    ...Array.from({length: 8}, (v,i)=>({x:i, y:8})),   
-                    ...Array.from({length: 6}, (v,i)=>({x:1, y:i+2})).filter(p => p.y !== 3), 
-                    ...Array.from({length: 6}, (v,i)=>({x:i+2, y:2})), 
-                    ...Array.from({length: 5}, (v,i)=>({x:6, y:i+3})), 
-                    ...Array.from({length: 4}, (v,i)=>({x:i+2, y:6})),
-                    ...Array.from({length: 2}, (v,i)=>({x:3, y:i+4})),
+                    ...Array.from({length: 6}, (v,i)=>({x:i+1, y:1})), 
+                    ...Array.from({length: 5}, (v,i)=>({x:6, y:i+1})), 
+                    ...Array.from({length: 6}, (v,i)=>({x:i, y:6})),   
+                    ...Array.from({length: 4}, (v,i)=>({x:1, y:i+2})), 
+                    ...Array.from({length: 3}, (v,i)=>({x:i+2, y:2})), 
+                    ...Array.from({length: 2}, (v,i)=>({x:4, y:i+3})), 
                 ]
             },
             {
-                id: 9, name: 'אתגר 9', isPractice: false, size: { rows: 12, cols: 12 }, startPosition: { x: 0, y: 11 }, startDirection: 'North', targetPosition: { x: 11, y: 0 },
+                id: 9, name: 'אתגר 9', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 7 }, startDirection: 'North', targetPositions: [{ x: 7, y: 0 }],
                 obstacles: [
-                    {x:2, y:2}, {x:2, y:3}, {x:3, y:2}, {x:3, y:3},
-                    {x:2, y:8}, {x:2, y:9}, {x:3, y:8}, {x:3, y:9},
-                    {x:5, y:5}, {x:5, y:6}, {x:6, y:5}, {x:6, y:6},
-                    {x:8, y:2}, {x:8, y:3}, {x:9, y:2}, {x:9, y:3},
-                    {x:8, y:8}, {x:8, y:9}, {x:9, y:8}, {x:9, y:9},
+                    {x:1,y:1},{x:1,y:2},{x:2,y:1},{x:2,y:2},
+                    {x:1,y:5},{x:1,y:6},{x:2,y:5},{x:2,y:6},
+                    {x:5,y:1},{x:5,y:2},{x:6,y:1},{x:6,y:2},
+                    {x:5,y:5},{x:5,y:6},{x:6,y:5},{x:6,y:6},
                 ]
             },
             {
-                id: 10, name: 'אתגר 10', isPractice: false, size: { rows: 12, cols: 12 }, startPosition: { x: 0, y: 6 }, startDirection: 'East', targetPosition: { x: 11, y: 5 },
+                id: 10, name: 'אתגר 10', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 5 }, startDirection: 'East', targetPositions: [{ x: 7, y: 2 }],
                 obstacles: [
-                    ...Array.from({length: 6}, (v,i)=>({x:i+3, y:3})),
-                    ...Array.from({length: 6}, (v,i)=>({x:i+3, y:4})),
-                    ...Array.from({length: 6}, (v,i)=>({x:i+3, y:7})),
-                    ...Array.from({length: 6}, (v,i)=>({x:i+3, y:8})),
-                    ...Array.from({length: 12}, (v,i)=>({x:1, y:i})).filter(p => p.y !== 6),
-                    ...Array.from({length: 12}, (v,i)=>({x:10, y:i})).filter(p => p.y !== 5),
-                    {x:3, y:5}, {x:3, y:6},
-                    {x:8, y:5}, {x:8, y:6},
+                    ...Array.from({length: 5}, (v,i)=>({x:i+2, y:1})),
+                    ...Array.from({length: 5}, (v,i)=>({x:i, y:3})),
+                    ...Array.from({length: 5}, (v,i)=>({x:i+2, y:4})),
+                    ...Array.from({length: 5}, (v,i)=>({x:i, y:6})),
                 ]
+            },
+            {
+                id: 11, name: 'אתגר 11', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 0 }, startDirection: 'East',
+                targetPositions: [{ x: 7, y: 0 }, { x: 7, y: 7 }],
+                obstacles: [...Array.from({length: 8}, (v,i)=>({x:3, y:i})).filter(p => p.y !== 4)],
+            },
+            {
+                id: 12, name: 'אתגר 12', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 4, y: 4 }, startDirection: 'North',
+                targetPositions: [{ x: 0, y: 0 }, { x: 7, y: 7 }],
+                obstacles: [
+                    ...Array.from({length: 7}, (v,i)=>({x:i+1, y:2})),
+                    ...Array.from({length: 7}, (v,i)=>({x:i, y:5})),
+                ],
+            },
+            {
+                id: 13, name: 'אתגר 13', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 7 }, startDirection: 'North',
+                targetPositions: [{ x: 4, y: 3 }, { x: 3, y: 4 }],
+                obstacles: [
+                    ...Array.from({length: 6}, (v,i)=>({x:i+1, y:6})),
+                    ...Array.from({length: 5}, (v,i)=>({x:6, y:i+1})),
+                    ...Array.from({length: 5}, (v,i)=>({x:i+1, y:1})),
+                    ...Array.from({length: 3}, (v,i)=>({x:2, y:i+2})),
+                ],
+            },
+            {
+                id: 14, name: 'אתגר 14', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 4 }, startDirection: 'East',
+                targetPositions: [{ x: 2, y: 2 }, { x: 6, y: 6 }],
+                obstacles: [
+                    ...Array.from({length:8}, (v,i)=>({x:3, y:i})).filter(p => p.y !== 4),
+                    ...Array.from({length:8}, (v,i)=>({x:5, y:i})).filter(p => p.y !== 4),
+                ],
+            },
+            {
+                id: 15, name: 'אתגר 15', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 0 }, startDirection: 'East',
+                targetPositions: [{ x: 7, y: 0 }, { x: 7, y: 7 }],
+                obstacles: [
+                    ...[1,3,5].flatMap(col => Array.from({length:8}, (_,row) => ({x: col, y: row})))
+                        .filter(p => !(p.x===1 && p.y===4) && !(p.x===3 && p.y===1) && !(p.x===5 && p.y===6)),
+                ],
+            },
+            {
+                id: 16, name: 'אתגר 16', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 4, y: 4 }, startDirection: 'North',
+                targetPositions: [{ x: 0, y: 0 }, { x: 7, y: 7 }],
+                obstacles: [
+                    ...Array.from({length: 7}, (v,i)=>({x: 1, y: i})),
+                    ...Array.from({length: 7}, (v,i)=>({x: 3, y: i + 1})),
+                    ...Array.from({length: 7}, (v,i)=>({x: 5, y: i})),
+                ],
+            },
+            {
+                id: 17, name: 'אתגר 17', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 0 }, startDirection: 'East',
+                targetPositions: [{ x: 7, y: 0 }, { x: 7, y: 7 }],
+                obstacles: [1, 3, 5].flatMap(col => Array.from({length:8}, (v, row) => ({x: col, y: row})))
+                    .filter(p => !(p.x === 1 && p.y === 4) && !(p.x === 3 && p.y === 2) && !(p.x === 5 && p.y === 6)),
+            },
+            {
+                id: 18, name: 'אתגר 18', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 4, y: 0 }, startDirection: 'South',
+                targetPositions: [{ x: 1, y: 7 }, { x: 6, y: 7 }],
+                obstacles: [1, 3, 5].flatMap(row => Array.from({length:8}, (v, col) => ({x: col, y: row})))
+                    .filter(p => !(p.y === 1 && p.x === 6) && !(p.y === 3 && p.x === 1) && !(p.y === 5 && p.x === 6)),
+            },
+            {
+                id: 19, name: 'אתגר 19', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 1, y: 1 }, startDirection: 'East',
+                targetPositions: [{ x: 6, y: 1 }, { x: 6, y: 6 }],
+                obstacles: [
+                    ...Array.from({length:8}, (v,i)=>({x:3, y:i})),
+                    ...Array.from({length:8}, (v,i)=>({x:i, y:3})),
+                ].filter(p => !(p.x === 3 && p.y === 1) && !(p.x === 1 && p.y === 3) && !(p.x === 3 && p.y === 6) && !(p.x === 6 && p.y === 3)),
+            },
+            {
+                id: 20, name: 'אתגר 20', isPractice: false, size: { rows: 8, cols: 8 }, startPosition: { x: 0, y: 4 }, startDirection: 'East',
+                targetPositions: [{ x: 7, y: 0 }, { x: 7, y: 7 }],
+                obstacles: [2, 4, 6].flatMap(c => Array.from({length:8}, (v,r)=>({x:c, y:r}))).filter(p => {
+                    if (p.x === 2) return p.y !== 1 && p.y !== 6;
+                    if (p.x === 4) return p.y !== 3 && p.y !== 4;
+                    if (p.x === 6) return p.y !== 2 && p.y !== 5;
+                    return true;
+                }),
             }
         ];
         const ROTATION_MAP = { 'North': 90, 'East': 180, 'South': 270, 'West': 0 };
@@ -222,7 +304,7 @@
         // =================================================
         let state = {
             currentLevelId: 0,
-            gridState: { size: { rows: 0, cols: 0 }, targetPosition: { x: 0, y: 0 }, obstacles: new Set() },
+            gridState: { size: { rows: 0, cols: 0 }, targetPositions: [], obstacles: new Set() },
             beeBotState: { position: { x: 0, y: 0 }, direction: 'East', rotation: 180 },
             sequence: [],
             selectedSequenceIndex: -1,
@@ -231,6 +313,7 @@
             forwardSteps: 1, backwardSteps: 1, isNumberPadOpen: false, numberPadTarget: null,
             score: 0,
             maxLevelUnlocked: 1, // Start with level 1 unlocked
+            visitedTargets: new Set(),
         };
 
         // Cheat code state
@@ -266,11 +349,11 @@
 
             if (level.isPractice) {
                 state.score = 0;
-                state.maxLevelUnlocked = 1;
+                // state.maxLevelUnlocked = 1; // Let's not reset this
             }
 
             const obsSet = new Set(level.obstacles.map(o => `${o.x},${o.y}`));
-            state = { ...state, currentLevelId: levelId, gridState: { size: level.size, targetPosition: level.targetPosition, obstacles: obsSet }, beeBotState: { position: { ...level.startPosition }, direction: level.startDirection, rotation: ROTATION_MAP[level.startDirection] }, sequence: [], selectedSequenceIndex: -1, executingIndex: -1, isExecuting: false, forwardSteps: 1, backwardSteps: 1 };
+            state = { ...state, currentLevelId: levelId, gridState: { size: level.size, targetPositions: level.targetPositions, obstacles: obsSet }, beeBotState: { position: { ...level.startPosition }, direction: level.startDirection, rotation: ROTATION_MAP[level.startDirection] }, sequence: [], selectedSequenceIndex: -1, executingIndex: -1, isExecuting: false, forwardSteps: 1, backwardSteps: 1, visitedTargets: new Set() };
             setFeedback(`שלב '${level.name}' נטען.`, 'info');
             renderAll();
         }
@@ -284,16 +367,18 @@
             const currentLevel = LEVELS.find(l => l.id === state.currentLevelId);
             if (currentLevel.isPractice) {
                 setFeedback("מעולה! סיימת את התרגול!", 'success');
-                // In practice, we don't auto-advance or give points. Just reset.
                 setTimeout(() => loadLevel(state.currentLevelId), 2000);
                 return;
             }
 
-            const points = currentLevel.id <= 5 ? 5 : 10;
+            const points = currentLevel.id <= 5 ? 5 : (currentLevel.id <= 10 ? 10 : 15);
             state.score += points;
 
             if (currentLevel.id === state.maxLevelUnlocked) {
-                state.maxLevelUnlocked++;
+                 const totalLevels = LEVELS.filter(l => !l.isPractice).length;
+                 if (state.maxLevelUnlocked < totalLevels) {
+                    state.maxLevelUnlocked++;
+                 }
             }
             setFeedback(`הצלחת! +${points} נקודות!`, 'success');
             setTimeout(goToNextLevel, 2000);
@@ -306,7 +391,6 @@
                 loadLevel(nextLevel.id);
             } else {
                 setFeedback("כל הכבוד! סיימת את כל האתגרים! 🎉", 'success');
-                // Optional: reset to practice after a delay
                 setTimeout(() => loadLevel(0), 3000);
             }
         }
@@ -327,6 +411,13 @@
                     }
                     currentState = result.newState;
                     state.beeBotState = currentState;
+                    
+                    // Check for target visit
+                    const currentPosStr = `${currentState.position.x},${currentState.position.y}`;
+                    if (state.gridState.targetPositions.some(p => p.x === currentState.position.x && p.y === currentState.position.y)) {
+                        state.visitedTargets.add(currentPosStr);
+                    }
+                    
                     renderGrid();
                 }
                 if (!wasSuccessful) break;
@@ -368,19 +459,25 @@
         }
         function renderGrid() {
             const container = document.getElementById('gridContainer');
-            const { size, targetPosition, obstacles } = state.gridState;
+            const { size, targetPositions, obstacles } = state.gridState;
             const cellsHTML = Array.from({ length: size.rows * size.cols }, (_, i) => {
                 const y = Math.floor(i / size.cols), x = i % size.cols;
-                const isTarget = x === targetPosition.x && y === targetPosition.y;
+                const isTarget = targetPositions.some(p => p.x === x && p.y === y);
+                const isVisited = state.visitedTargets.has(`${x},${y}`);
                 const isObstacle = obstacles.has(`${x},${y}`);
                 const isBeeHere = x === state.beeBotState.position.x && y === state.beeBotState.position.y;
-                let content = isObstacle ? getBushSVG(x, y) : isTarget ? '<span class="text-4xl" onclick="handleTargetClick()">🎯</span>' : '';
+                let content = '';
+                if (isTarget) {
+                    content = `<span class="text-4xl transition-opacity duration-300 ${isVisited ? 'opacity-40' : ''}" onclick="handleTargetClick()">🎯</span>`;
+                } else if (isObstacle) {
+                    content = getBushSVG(x, y);
+                }
                 if (isBeeHere) content += getCharacterSVG(state.beeBotState.rotation);
-                const borderClass = 'border border-white/50';
+                const borderClass = 'border border-[var(--grid-border-color)]';
                 const bgClass = isObstacle ? 'bg-green-900/30' : '';
                 return `<div class="relative ${borderClass} ${bgClass} flex items-center justify-center">${content}</div>`;
             }).join('');
-            container.innerHTML = `<div dir="ltr" class="planter-box-grid grid w-full max-w-[600px] aspect-square mx-auto p-2" style="grid-template-columns: repeat(${size.cols}, 1fr); grid-template-rows: repeat(${size.rows}, 1fr);">${cellsHTML}</div>`;
+            container.innerHTML = `<div dir="ltr" id="gameGrid" class="planter-box-grid grid w-full max-w-[600px] aspect-square mx-auto p-2" style="grid-template-columns: repeat(${size.cols}, 1fr); grid-template-rows: repeat(${size.rows}, 1fr); background-color: var(--grid-bg-color);">${cellsHTML}</div>`;
         }
         function renderScore() {
             document.getElementById('scoreDisplay').textContent = state.score;
@@ -390,8 +487,8 @@
             const modal = document.getElementById('numberPadModal');
             if (!state.isNumberPadOpen) { modal.classList.add('hidden'); return; }
             modal.classList.remove('hidden');
-            const numbersHTML = [1, 2, 3, 4, 5].map(n => `<button onclick="selectNumber(${n})" class="w-16 h-16 text-2xl font-bold bg-[#8B5A2B] text-white rounded-full wooden-button round">${n}</button>`).join('');
-            modal.innerHTML = `<div class="bg-[#fdf5e6] p-6 rounded-2xl shadow-xl w-full max-w-xs text-center animate-fade-in-up parchment-panel"><h3 class="text-xl font-semibold mb-4 text-[#5a3d1d]">בחר מספר צעדים</h3><div class="grid grid-cols-3 gap-4 justify-items-center">${numbersHTML}</div><button onclick="closeNumberPad()" class="mt-6 bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 wooden-button rect">סגור</button></div>`;
+            const numbersHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button onclick="selectNumber(${n})" class="w-14 h-14 text-xl font-bold bg-[#8B5A2B] text-white rounded-full wooden-button round">${n}</button>`).join('');
+            modal.innerHTML = `<div class="bg-[#fdf5e6] p-6 rounded-2xl shadow-xl w-full max-w-sm text-center animate-fade-in-up parchment-panel"><h3 class="text-xl font-semibold mb-4 text-[#5a3d1d]">בחר מספר צעדים</h3><div class="grid grid-cols-5 gap-3 justify-items-center">${numbersHTML}</div><button onclick="closeNumberPad()" class="mt-6 bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold hover:bg-gray-400 wooden-button rect">סגור</button></div>`;
         }
         function renderControls() {
             const commandPad = document.getElementById('commandPad');
@@ -465,7 +562,7 @@
                 `;
             }
 
-            sequenceWrapper.innerHTML = `<div class="min-h-[80px] flex-grow flex flex-wrap content-start gap-2 p-2 border-2 border-dashed border-[#c1a37c] rounded-lg bg-[#fdf5e6]/50">${sequenceContentHTML}</div><div class="mt-4 space-y-2">${actionButtonsHTML}</div>`;
+            sequenceWrapper.innerHTML = `<div class="min-h-[80px] max-h-40 overflow-y-auto flex-grow flex flex-wrap content-start gap-2 p-2 border-2 border-dashed border-[#c1a37c] rounded-lg bg-[#fdf5e6]/50">${sequenceContentHTML}</div><div class="mt-4 space-y-2">${actionButtonsHTML}</div>`;
         }
 
         function renderAll() { renderGrid(); renderControls(); renderLevelSelector(); renderNumberPad(); renderScore(); }
@@ -473,6 +570,23 @@
         // =================================================
         // 5. אינטראקציה (Handlers)
         // =================================================
+        window.handleBackgroundColorChange = (event) => {
+            const value = event.target.value; // 0 (brown) to 100 (green)
+            const brownHue = 30;
+            const greenHue = 125;
+            const hue = brownHue + ((greenHue - brownHue) * value / 100);
+            
+            // Calculate colors
+            const bgColor = `hsl(${hue}, 50%, 85%)`;
+            const borderColor = `hsl(${hue}, 40%, 60%)`; // Darker, less saturated for contrast
+
+            // Set CSS variables on the container
+            const containerEl = document.getElementById('gridContainer');
+            if (containerEl) {
+                containerEl.style.setProperty('--grid-bg-color', bgColor);
+                containerEl.style.setProperty('--grid-border-color', borderColor);
+            }
+        };
         window.handleTargetClick = () => {
             const now = Date.now();
             if (now - lastTargetClickTime > 2000) { // Reset after 2 seconds
@@ -492,7 +606,7 @@
                     setFeedback("כל השלבים כבר פתוחים.", 'info');
                 }
                 targetClickCount = 0; // Reset
-            } else {
+            } else if (targetClickCount < 5){
                 setFeedback(`לחיצה ${targetClickCount} מתוך 5 לפתיחת שלבים...`, 'info');
             }
         };
@@ -511,9 +625,9 @@
             if (LEVELS.find(l => l.id === state.currentLevelId).isPractice) {
                 state.isExecuting = true; renderAll();
                 const result = await executeCommandList([command], state.beeBotState);
-                 const targetReached = result.finalState.position.x === state.gridState.targetPosition.x && result.finalState.position.y === state.gridState.targetPosition.y;
-                if (result.success && targetReached) {
-                    handleLevelCompletion(); // Use the central handler
+                const allTargetsReached = result.success && state.visitedTargets.size === state.gridState.targetPositions.length;
+                if (allTargetsReached) {
+                    handleLevelCompletion();
                 } else {
                     state.isExecuting = false;
                     if (result.success) setFeedback(`בוצע.`, 'info');
@@ -525,18 +639,27 @@
         window.runSequence = async () => {
             const level = LEVELS.find(l => l.id === state.currentLevelId);
             if (state.isExecuting || level.isPractice || state.sequence.length === 0) return;
-            state.selectedSequenceIndex = -1; state.isExecuting = true; renderAll();
+            
+            state.selectedSequenceIndex = -1; 
+            state.isExecuting = true;
+            state.visitedTargets.clear(); // Clear visited targets before a run
+            renderAll();
+
             const initialBeeState = { position: { ...level.startPosition }, rotation: ROTATION_MAP[level.startDirection] };
-            state.beeBotState = initialBeeState; renderGrid();
+            state.beeBotState = initialBeeState; 
+            renderGrid();
+
             setFeedback("מבצע את האלגוריתם...", 'info');
             await new Promise(r => setTimeout(r, 500));
             const result = await executeCommandList(state.sequence, initialBeeState);
             state.executingIndex = -1;
-            const targetReached = result.success && result.finalState.position.x === state.gridState.targetPosition.x && result.finalState.position.y === state.gridState.targetPosition.y;
-            if (targetReached) {
+            
+            const allTargetsReached = result.success && state.visitedTargets.size === state.gridState.targetPositions.length;
+
+            if (allTargetsReached) {
                 handleLevelCompletion();
             } else {
-                if (result.success) setFeedback("האלגוריתם הסתיים, אך לא הגעת ליעד.", 'warning');
+                if (result.success) setFeedback("האלגוריתם הסתיים, אך לא הגעת לכל היעדים.", 'warning');
                 state.isExecuting = false;
                 renderAll();
             }
@@ -545,7 +668,12 @@
         // =================================================
         // 6. אתחול
         // =================================================
-        window.onload = () => loadLevel(state.currentLevelId);
+        window.onload = () => {
+            loadLevel(state.currentLevelId);
+            // Trigger the background color change on load to match the slider's initial value
+            const initialSliderValue = document.getElementById('bgColorSlider').value;
+            handleBackgroundColorChange({ target: { value: initialSliderValue } });
+        };
 
     </script>
 </body>
